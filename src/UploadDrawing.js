@@ -169,6 +169,12 @@ const UploadDrawingList = () => {
         cellStyle: { fontWeight: "bold", textAlign: "center" },
       },
       {
+        field: "FILE_ID",
+        headerName: "File ID",
+        width: isMobile ? 100 : 120,
+        cellStyle: { textAlign: "center" },
+      },
+      {
         field: "FILE_NAME",
         headerName: "File Name",
         width: isMobile ? 200 : 250,
@@ -178,17 +184,12 @@ const UploadDrawingList = () => {
         cellStyle: { fontWeight: "bold" },
       },
       {
-        field: "CUSTOMER_NAME",
-        headerName: "Customer Name",
-        width: isMobile ? 180 : 220,
-        cellStyle: { textAlign: "left" },
-      },
-      {
         field: "FILE_TYPE_NAME",
         headerName: "File Type",
         width: isMobile ? 120 : 150,
         cellStyle: { textAlign: "left" },
       },
+      
       {
         field: "PRODUCT_NAME",
         headerName: "Product",
@@ -196,17 +197,19 @@ const UploadDrawingList = () => {
         cellStyle: { textAlign: "left" },
       },
       {
-        field: "PROJECT_ID",
-        headerName: "Project ID",
-        width: isMobile ? 100 : 120,
-        cellStyle: { textAlign: "center" },
+        field: "CUSTOMER_NAME",
+        headerName: "Customer Name",
+        width: isMobile ? 180 : 220,
+        cellStyle: { textAlign: "left" },
       },
-      {
-        field: "FILE_ID",
-        headerName: "File ID",
-        width: isMobile ? 100 : 120,
-        cellStyle: { textAlign: "center" },
-      },
+      
+      // {
+      //   field: "PROJECT_ID",
+      //   headerName: "Project ID",
+      //   width: isMobile ? 100 : 120,
+      //   cellStyle: { textAlign: "center" },
+      // },
+      
     ];
 
     return baseColumns;
@@ -301,7 +304,9 @@ const UploadDrawingList = () => {
       }
 
       // Open details page in new tab with FILE_ID and FILE_NAME
-      const detailsUrl = `/#/upload-drawing-details/${selectedRecord.FILE_ID}`;
+      // const detailsUrl = `/#/upload-drawing-details/${selectedRecord.FILE_ID}`;
+      // window.open(detailsUrl, "_blank");
+      const detailsUrl = `${window.location.origin}${window.location.pathname}#/upload-drawing-details/${selectedRecord.FILE_ID}`;
       window.open(detailsUrl, "_blank");
     }
   };

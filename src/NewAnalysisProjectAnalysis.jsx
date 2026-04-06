@@ -36,25 +36,40 @@ ModuleRegistry.registerModules([
   CsvExportModule,
 ]);
 
-// ─── Dropdown Cell Editor ────────────────────────────────────────────────────
-const DropdownCellEditor = React.forwardRef((props, ref) => {
-  const [value, setValue] = useState(props.value || "");
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ FIX 1: InlineDropdownCell is defined OUTSIDE the parent component.
+//    Using inline cellRenderer (like SiteDashboardGrid pattern) instead of
+//    cellEditor — value is always visible, changes are immediate and reliable.
+// ─────────────────────────────────────────────────────────────────────────────
+const InlineDropdownCell = ({ value, node, colDef, options = [] }) => {
+  const [selected, setSelected] = React.useState(value ?? "");
 
-  React.useImperativeHandle(ref, () => ({
-    getValue: () => value,
-    isCancelBeforeStart: () => false,
-    isCancelAfterEnd: () => false,
-  }));
+  // Sync if external data changes (e.g. after refresh)
+  React.useEffect(() => {
+    setSelected(value ?? "");
+  }, [value]);
 
-  const options = props.options || [];
+  const handleChange = (e) => {
+    const newVal = e.target.value;
+    setSelected(newVal);
+    // ✅ FIX 2: setDataValue triggers onCellValueChanged → isDirty = true → Save button enables
+    node.setDataValue(colDef.field, newVal);
+  };
 
   return (
     <select
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={() => props.stopEditing()}
-      style={{ width: "100%", height: "100%", border: "none", outline: "none" }}
-      autoFocus
+      value={selected}
+      onChange={handleChange}
+      style={{
+        width: "100%",
+        height: "100%",
+        border: "none",
+        background: "transparent",
+        fontSize: "11px",
+        outline: "none",
+        cursor: "pointer",
+        padding: "0 4px",
+      }}
     >
       <option value="">-- Select --</option>
       {options.map((opt) => (
@@ -64,8 +79,52 @@ const DropdownCellEditor = React.forwardRef((props, ref) => {
       ))}
     </select>
   );
-});
+};
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ FIX 3: EditableInputCell defined OUTSIDE parent — stable reference,
+//    no remounting on re-render (same fix as SiteDashboardGrid).
+// ─────────────────────────────────────────────────────────────────────────────
+const EditableInputCell = ({ value, node, colDef }) => {
+  const [inputValue, setInputValue] = React.useState(value ?? "");
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    setInputValue(value ?? "");
+  }, [value]);
+
+  const handleChange = (e) => {
+    const newVal = e.target.value;
+    setInputValue(newVal);
+    node.setDataValue(colDef.field, newVal);
+  };
+
+  return (
+    <input
+      type="text"
+      value={inputValue}
+      onChange={handleChange}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%",
+        height: "100%",
+        border: focused ? "2px solid #0d6efd" : "1px solid transparent",
+        borderRadius: 3,
+        padding: "0 6px",
+        textAlign: "right",
+        fontSize: 11,
+        background: focused ? "#f0f6ff" : "transparent",
+        outline: "none",
+        transition: "all 0.15s",
+      }}
+    />
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
 const NewAnalysisProjectAnalysis = () => {
   const [theme, setTheme] = useState("light");
   const [rowDataTab1, setRowDataTab1] = useState([]);
@@ -87,6 +146,13 @@ const NewAnalysisProjectAnalysis = () => {
   const gridRefTab1 = useRef(null);
   const gridRefTab2 = useRef(null);
   const gridRefTab3 = useRef(null);
+
+  // Keep latest city/type options accessible in stable cell renderers
+  const cityOptionsRef = useRef([]);
+  const typeOptionsRef = useRef([]);
+
+  useEffect(() => { cityOptionsRef.current = cityOptions; }, [cityOptions]);
+  useEffect(() => { typeOptionsRef.current = typeOptions; }, [typeOptions]);
 
   const tabs = [
     "Project Analysis",
@@ -111,7 +177,9 @@ const NewAnalysisProjectAnalysis = () => {
     document.body.appendChild(toastDiv);
     setTimeout(() => {
       toastDiv.style.animation = "slideOut 0.3s ease-out";
-      setTimeout(() => document.body.removeChild(toastDiv), 300);
+      setTimeout(() => {
+        if (document.body.contains(toastDiv)) document.body.removeChild(toastDiv);
+      }, 300);
     }, 3000);
   };
 
@@ -365,15 +433,22 @@ const NewAnalysisProjectAnalysis = () => {
     }
   };
 
+  // ─── Save Handler Tab 1 ───────────────────────────────────────────────────
+  // ✅ FIX 4: Save handler now works because isDirty is properly set via
+  //    node.setDataValue() → onCellValueChanged → isDirty = true
   const handleSaveRowTab1 = async (params) => {
     try {
       const payload = buildProjectPayload(params.data);
       const json = await saveProjectData(payload);
       if (json.status) {
-        params.node.setData({ ...params.data, isDirty: false });
+        // Mark as saved (clear dirty flag)
+        params.api.applyTransaction({
+          update: [{ ...params.data, isDirty: false, detailsLoaded: false }],
+        });
+        params.api.refreshCells({ rowNodes: [params.node], force: true });
         showToast("Project data saved successfully", "success");
       } else {
-        showToast("Save failed", "error");
+        showToast("Save failed: " + (json.message || "Unknown error"), "error");
       }
     } catch (err) {
       console.error(err);
@@ -410,6 +485,9 @@ const NewAnalysisProjectAnalysis = () => {
   };
 
   // ─── Column Definitions ───────────────────────────────────────────────────
+  // ✅ FIX 5: Dropdowns now use cellRenderer (inline, always visible) instead
+  //    of cellEditor. The InlineDropdownCell component is stable (defined outside)
+  //    so ag-Grid won't remount it on every parent re-render.
   const generateColumnDefs = () => [
     {
       headerName: "Sr No",
@@ -421,25 +499,54 @@ const NewAnalysisProjectAnalysis = () => {
       lockPosition: true,
       cellStyle: { textAlign: "center" },
     },
-    { field: "owner_name", headerName: "Owner Name", width: isMobile ? 200 : 280, pinned: "left" },
     {
-      field: "FILE_NAME", headerName: "File Name", width: isMobile ? 200 : 280, pinned: "left",
-      checkboxSelection: true, headerCheckboxSelection: true,
+      field: "owner_name",
+      headerName: "Owner Name",
+      width: isMobile ? 200 : 280,
+      pinned: "left",
+    },
+    {
+      field: "FILE_NAME",
+      headerName: "File Name",
+      width: isMobile ? 200 : 280,
+      pinned: "left",
+      checkboxSelection: true,
+      headerCheckboxSelection: true,
       cellRenderer: (params) => (
-        <span style={{ color: "#0d6efd", cursor: "pointer", fontWeight: 600 }} onClick={() => handleFileClick(params)}>
+        <span
+          style={{ color: "#0d6efd", cursor: "pointer", fontWeight: 600 }}
+          onClick={() => handleFileClick(params)}
+        >
           {params.value}
         </span>
       ),
     },
+    // ✅ FIXED: Location dropdown — inline renderer, always shows selected value
     {
-      field: "location", headerName: "Location", width: isMobile ? 200 : 280, pinned: "left",
-      editable: true, cellEditor: DropdownCellEditor,
-      cellEditorParams: () => ({ options: cityOptions }), cellEditorPopup: false,
+      field: "location",
+      headerName: "Location",
+      width: isMobile ? 200 : 220,
+      pinned: "left",
+      cellRenderer: (params) => (
+        <InlineDropdownCell
+          {...params}
+          options={cityOptionsRef.current}
+        />
+      ),
+      cellStyle: { padding: "0" },
     },
+    // ✅ FIXED: Type dropdown — inline renderer, always shows selected value
     {
-      field: "product_type", headerName: "Type", width: isMobile ? 200 : 280,
-      editable: true, cellEditor: DropdownCellEditor,
-      cellEditorParams: () => ({ options: typeOptions }), cellEditorPopup: false,
+      field: "product_type",
+      headerName: "Type",
+      width: isMobile ? 200 : 220,
+      cellRenderer: (params) => (
+        <InlineDropdownCell
+          {...params}
+          options={typeOptionsRef.current}
+        />
+      ),
+      cellStyle: { padding: "0" },
     },
     { field: "specification", headerName: "Specification", width: isMobile ? 200 : 280 },
     { field: "client_name", headerName: "Client Name", width: isMobile ? 200 : 280 },
@@ -463,24 +570,42 @@ const NewAnalysisProjectAnalysis = () => {
     { field: "Total_Expense", headerName: "Total Expenses (Act Mtrl + cons + Site + Transport)", width: isMobile ? 200 : 280, valueFormatter: numberFormatter },
     { field: "Diff_between_tot_mktg_allowed_and_total_expense", headerName: "Diff betw Total Marketing Allowed and Total as Actual Expe", width: isMobile ? 200 : 280, valueFormatter: numberFormatter },
     {
-      headerName: "Action", field: "action", width: isMobile ? 70 : 100,
-      pinned: isMobile ? null : "right", editable: false,
+      headerName: "Action",
+      field: "action",
+      width: isMobile ? 80 : 110,
+      pinned: isMobile ? null : "right",
+      editable: false,
+      sortable: false,
+      filter: false,
+      // ✅ FIX 6: Save button is ALWAYS enabled now — any dropdown change via
+      //    node.setDataValue() triggers onCellValueChanged which sets isDirty=true.
+      //    Button disables only on initial load before any edit.
       cellRenderer: (params) => {
         const canSave = params.data.detailsLoaded || params.data.isDirty;
         return (
-          <button
-            className="btn btn-sm btn-success"
-            disabled={!canSave}
-            onClick={() => handleSaveRowTab1(params)}
-            style={{ opacity: canSave ? 1 : 0.5, cursor: canSave ? "pointer" : "not-allowed" }}
-          >
-            Save
-          </button>
+          <div style={{ display: "flex", alignItems: "center", height: "100%", justifyContent: "center" }}>
+            <button
+              className="btn btn-sm btn-success"
+              disabled={!canSave}
+              onClick={() => handleSaveRowTab1(params)}
+              style={{
+                opacity: canSave ? 1 : 0.4,
+                cursor: canSave ? "pointer" : "not-allowed",
+                fontSize: "11px",
+                padding: "3px 10px",
+                transition: "all 0.2s",
+              }}
+              title={canSave ? "Save changes" : "Make changes to enable save"}
+            >
+              💾 Save
+            </button>
+          </div>
         );
       },
     },
   ];
 
+  // Tab 2 column definitions (read-only, no dropdowns needed)
   const rightColDef = [
     { headerName: "Sr No", field: "serialNumber", valueGetter: (params) => (params.node ? params.node.rowIndex + 1 : ""), width: isMobile ? 60 : 80, minWidth: 50, pinned: "left", lockPosition: true, cellStyle: { textAlign: "center" } },
     { field: "owner_name", headerName: "Owner Name", width: isMobile ? 200 : 280, pinned: "left" },
@@ -511,20 +636,46 @@ const NewAnalysisProjectAnalysis = () => {
     { headerName: "TIMESTAMP", field: "timestamp", width: isMobile ? 120 : 200, minWidth: isMobile ? 90 : 150, valueFormatter: (params) => String(params.value) },
   ];
 
+  // Tab 3 column definitions
   const generateColumnDefsTab3 = [
     { headerName: "Sr No", field: "serialNumber", valueGetter: (params) => (params.node ? params.node.rowIndex + 1 : ""), width: isMobile ? 60 : 80, minWidth: 50, pinned: "left", lockPosition: true, cellStyle: { textAlign: "center" } },
     { field: "owner_name", headerName: "Owner Name", width: isMobile ? 200 : 280, pinned: "left" },
     {
-      field: "FILE_NAME", headerName: "File Name", width: isMobile ? 200 : 280, pinned: "left",
-      checkboxSelection: true, headerCheckboxSelection: true,
+      field: "FILE_NAME",
+      headerName: "File Name",
+      width: isMobile ? 200 : 280,
+      pinned: "left",
+      checkboxSelection: true,
+      headerCheckboxSelection: true,
       cellRenderer: (params) => (
-        <span style={{ color: "#0d6efd", cursor: "pointer", fontWeight: 600 }} onClick={(e) => { e.stopPropagation(); handleFileClickTab3(params); }}>
+        <span
+          style={{ color: "#0d6efd", cursor: "pointer", fontWeight: 600 }}
+          onClick={(e) => { e.stopPropagation(); handleFileClickTab3(params); }}
+        >
           {params.value}
         </span>
       ),
     },
-    { field: "location", headerName: "Location", width: isMobile ? 200 : 280, pinned: "left", editable: true },
-    { field: "product_type", headerName: "Type", width: isMobile ? 200 : 280, editable: true },
+    // ✅ Tab 3 dropdowns also fixed with inline renderer
+    {
+      field: "location",
+      headerName: "Location",
+      width: isMobile ? 200 : 220,
+      pinned: "left",
+      cellRenderer: (params) => (
+        <InlineDropdownCell {...params} options={cityOptionsRef.current} />
+      ),
+      cellStyle: { padding: "0" },
+    },
+    {
+      field: "product_type",
+      headerName: "Type",
+      width: isMobile ? 200 : 220,
+      cellRenderer: (params) => (
+        <InlineDropdownCell {...params} options={typeOptionsRef.current} />
+      ),
+      cellStyle: { padding: "0" },
+    },
     { field: "specification", headerName: "Specification", width: isMobile ? 200 : 280 },
     { field: "client_name", headerName: "Client Name", width: isMobile ? 200 : 280 },
     { field: "material_po", headerName: "Material PO", width: isMobile ? 200 : 280, valueFormatter: numberFormatter },
@@ -550,26 +701,29 @@ const NewAnalysisProjectAnalysis = () => {
 
   // ─── defaultColDef ────────────────────────────────────────────────────────
   const defaultColDef = useMemo(() => ({
-    filter: true, sortable: true, floatingFilter: !isMobile,
-    resizable: true, suppressMenu: isMobile,
+    filter: true,
+    sortable: true,
+    floatingFilter: !isMobile,
+    resizable: true,
+    suppressMenu: isMobile,
     cellStyle: (params) => {
       const numericFields = [
-        "material_po","m_po","mktg_material_cost","desgin_bom","electrical_bom",
-        "mktg_trasport_cost","kg_mktg","kg","transport_actual_cost","kg_design_value",
-        "kg_design","Diff_Between_Supply_PO_and_Actual_material_consumption",
-        "LabourPOActualcost","mktg_allowed_site_expe","actual_site_expe","mktg_labour_cost",
-        "Diff_Between_Mktg_Allowed_and_Actual_site_Exp","Diff_Between_Labor_PO_and_Actual_site_expenses",
-        "totalPo","Total_Mktg_Allowed","Total_Expense","labourcostsusham",
-        "championlabourcostsmetal","championlabourcostfabfound","assemblylabour",
-        "othervendorlabour","seconddclabour","gettotallcost","Diff_Between_Mktg_and_At_Actual",
-        "function_call","Diff_between_tot_mktg_allowed_and_total_expense","wages",
-        "person_to_display","person","kg_person_to_display","kg_person",
-        "working_days_to_display","working_days","total_kg_person_to_display","total_kg_person",
-        "totalManDays_to_display","totalManDays","travellingDays_to_display","travellingDays",
-        "actualDays_to_display","actualDays","covid_to_display","covid",
-        "project_cost_to_display","cost","FactorA_to_display","FactorA",
-        "FactorB_to_display","FactorB","actual_material_consumption",
-        "actual_ppc_labour_cost","poamt","TOppccost",
+        "material_po", "m_po", "mktg_material_cost", "desgin_bom", "electrical_bom",
+        "mktg_trasport_cost", "kg_mktg", "kg", "transport_actual_cost", "kg_design_value",
+        "kg_design", "Diff_Between_Supply_PO_and_Actual_material_consumption",
+        "LabourPOActualcost", "mktg_allowed_site_expe", "actual_site_expe", "mktg_labour_cost",
+        "Diff_Between_Mktg_Allowed_and_Actual_site_Exp", "Diff_Between_Labor_PO_and_Actual_site_expenses",
+        "totalPo", "Total_Mktg_Allowed", "Total_Expense", "labourcostsusham",
+        "championlabourcostsmetal", "championlabourcostfabfound", "assemblylabour",
+        "othervendorlabour", "seconddclabour", "gettotallcost", "Diff_Between_Mktg_and_At_Actual",
+        "function_call", "Diff_between_tot_mktg_allowed_and_total_expense", "wages",
+        "person_to_display", "person", "kg_person_to_display", "kg_person",
+        "working_days_to_display", "working_days", "total_kg_person_to_display", "total_kg_person",
+        "totalManDays_to_display", "totalManDays", "travellingDays_to_display", "travellingDays",
+        "actualDays_to_display", "actualDays", "covid_to_display", "covid",
+        "project_cost_to_display", "cost", "FactorA_to_display", "FactorA",
+        "FactorB_to_display", "FactorB", "actual_material_consumption",
+        "actual_ppc_labour_cost", "poamt", "TOppccost",
       ];
       return numericFields.includes(params.colDef.field)
         ? { textAlign: "right" }
@@ -625,12 +779,18 @@ const NewAnalysisProjectAnalysis = () => {
   const toggleFullScreen = () => setIsFullScreen(!isFullScreen);
 
   const downloadExcel = () => {
-    const api = activeTab === tabs[0] ? gridRefTab1.current : activeTab === tabs[1] ? gridRefTab2.current : gridRefTab3.current;
+    const api =
+      activeTab === tabs[0]
+        ? gridRefTab1.current
+        : activeTab === tabs[1]
+        ? gridRefTab2.current
+        : gridRefTab3.current;
     if (!api) return;
     try {
       api.exportDataAsCsv({
         fileName: `ProjectAnalysis_${activeTab}_${new Date().toISOString().split("T")[0]}.csv`,
-        allColumns: true, onlySelected: false,
+        allColumns: true,
+        onlySelected: false,
       });
       showToast("Data exported successfully!", "success");
     } catch (error) {
@@ -640,7 +800,12 @@ const NewAnalysisProjectAnalysis = () => {
   };
 
   const autoSizeAll = () => {
-    const api = activeTab === tabs[0] ? gridRefTab1.current : activeTab === tabs[1] ? gridRefTab2.current : gridRefTab3.current;
+    const api =
+      activeTab === tabs[0]
+        ? gridRefTab1.current
+        : activeTab === tabs[1]
+        ? gridRefTab2.current
+        : gridRefTab3.current;
     if (!api) return;
     setTimeout(() => {
       const allColumnIds = api.getColumns()?.map((col) => col.getId()) || [];
@@ -658,18 +823,33 @@ const NewAnalysisProjectAnalysis = () => {
   // ─── Theme ────────────────────────────────────────────────────────────────
   const getThemeStyles = () =>
     theme === "dark"
-      ? { backgroundColor: "linear-gradient(135deg, #21262d 0%, #161b22 100%)", color: "#f8f9fa", cardBg: "#343a40", cardHeader: "linear-gradient(135deg, #495057 0%, #343a40 100%)" }
-      : { backgroundColor: "linear-gradient(135deg, #f8f9ff 0%, #e6f3ff 100%)", color: "#212529", cardBg: "#ffffff", cardHeader: "linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%)" };
+      ? {
+          backgroundColor: "linear-gradient(135deg, #21262d 0%, #161b22 100%)",
+          color: "#f8f9fa",
+          cardBg: "#343a40",
+          cardHeader: "linear-gradient(135deg, #495057 0%, #343a40 100%)",
+        }
+      : {
+          backgroundColor: "linear-gradient(135deg, #f8f9ff 0%, #e6f3ff 100%)",
+          color: "#212529",
+          cardBg: "#ffffff",
+          cardHeader: "linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%)",
+        };
 
   const themeStyles = getThemeStyles();
   const gridHeight = isFullScreen ? "calc(100vh - 240px)" : isMobile ? "400px" : "600px";
 
   const darkGridStyle = {
-    "--ag-background-color": "#212529", "--ag-header-background-color": "#343a40",
-    "--ag-odd-row-background-color": "#2c3034", "--ag-even-row-background-color": "#212529",
-    "--ag-row-hover-color": "#495057", "--ag-foreground-color": "#f8f9fa",
-    "--ag-header-foreground-color": "#f8f9fa", "--ag-border-color": "#495057",
-    "--ag-selected-row-background-color": "#28a745", "--ag-input-background-color": "#343a40",
+    "--ag-background-color": "#212529",
+    "--ag-header-background-color": "#343a40",
+    "--ag-odd-row-background-color": "#2c3034",
+    "--ag-even-row-background-color": "#212529",
+    "--ag-row-hover-color": "#495057",
+    "--ag-foreground-color": "#f8f9fa",
+    "--ag-header-foreground-color": "#f8f9fa",
+    "--ag-border-color": "#495057",
+    "--ag-selected-row-background-color": "#28a745",
+    "--ag-input-background-color": "#343a40",
     "--ag-input-border-color": "#495057",
   };
 
@@ -699,7 +879,15 @@ const NewAnalysisProjectAnalysis = () => {
   // ─── Initial full-page loading ────────────────────────────────────────────
   if (initialLoading) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: themeStyles.backgroundColor }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: themeStyles.backgroundColor,
+        }}
+      >
         <div style={{ textAlign: "center", color: themeStyles.color }}>
           <div className="spinner-border" role="status" style={{ width: "3rem", height: "3rem" }}>
             <span className="visually-hidden">Loading...</span>
@@ -710,38 +898,95 @@ const NewAnalysisProjectAnalysis = () => {
     );
   }
 
+  // ─── Shared grid props ────────────────────────────────────────────────────
+  const sharedGridProps = {
+    defaultColDef,
+    pagination: true,
+    paginationPageSize: isMobile ? 10 : 20,
+    suppressMovableColumns: isMobile,
+    rowMultiSelectWithClick: true,
+    animateRows: !isMobile,
+    enableCellTextSelection: true,
+    suppressHorizontalScroll: false,
+    headerHeight: isMobile ? 40 : 48,
+    rowHeight: isMobile ? 35 : 42,
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: "100vh", background: themeStyles.backgroundColor, color: themeStyles.color, padding: 0, margin: 0 }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: themeStyles.backgroundColor,
+        color: themeStyles.color,
+        padding: 0,
+        margin: 0,
+      }}
+    >
       <Container fluid={isFullScreen}>
-        <Card style={{ backgroundColor: themeStyles.cardBg, color: themeStyles.color, border: theme === "dark" ? "1px solid #495057" : "1px solid #dee2e6", margin: isFullScreen ? 0 : 20, borderRadius: isFullScreen ? 0 : 8 }}>
-
+        <Card
+          style={{
+            backgroundColor: themeStyles.cardBg,
+            color: themeStyles.color,
+            border: theme === "dark" ? "1px solid #495057" : "1px solid #dee2e6",
+            margin: isFullScreen ? 0 : 20,
+            borderRadius: isFullScreen ? 0 : 8,
+          }}
+        >
           {/* ── Header ── */}
-          <Card.Header style={{ background: themeStyles.cardHeader, color: theme === "dark" ? "#ffffff" : "#000000", fontFamily: "'Maven Pro', sans-serif", padding: "1rem 2rem" }}>
+          <Card.Header
+            style={{
+              background: themeStyles.cardHeader,
+              color: theme === "dark" ? "#ffffff" : "#000000",
+              fontFamily: "'Maven Pro', sans-serif",
+              padding: "1rem 2rem",
+            }}
+          >
             <Row className="align-items-center">
               <Col xs={12} lg={6} className="mb-2 mb-lg-0">
                 <h4 className="mb-0">Project Analysis</h4>
-                <small style={{ opacity: 0.8 }}>{selectedRows.length > 0 && ` | ${selectedRows.length} selected`}</small>
+                <small style={{ opacity: 0.8 }}>
+                  {selectedRows.length > 0 && ` | ${selectedRows.length} selected`}
+                </small>
               </Col>
               <Col xs={12} lg={6}>
                 <div className="d-flex justify-content-end gap-2 flex-wrap align-items-center">
                   <Form.Select
-                    value={activeTab === tabs[0] ? selectedFinancialYearTab1 : activeTab === tabs[1] ? selectedFinancialYearTab2 : selectedFinancialYearTab3}
+                    value={
+                      activeTab === tabs[0]
+                        ? selectedFinancialYearTab1
+                        : activeTab === tabs[1]
+                        ? selectedFinancialYearTab2
+                        : selectedFinancialYearTab3
+                    }
                     onChange={handleFinancialYearChange}
-                    style={{ width: "auto", minWidth: "120px" }} size="sm"
+                    style={{ width: "auto", minWidth: "120px" }}
+                    size="sm"
                   >
                     {financialYears.map((option) => (
-                      <option key={option.FINANCIAL_YEAR || option.financial_year} value={option.FINANCIAL_YEAR || option.financial_year}>
+                      <option
+                        key={option.FINANCIAL_YEAR || option.financial_year}
+                        value={option.FINANCIAL_YEAR || option.financial_year}
+                      >
                         FY {option.FINANCIAL_YEAR || option.financial_year}
                       </option>
                     ))}
                   </Form.Select>
                   <ButtonGroup size="sm">
-                    <Button variant="success" onClick={handleRefresh}><i className="bi bi-arrow-clockwise"></i>{!isMobile && " Refresh"}</Button>
+                    <Button variant="success" onClick={handleRefresh}>
+                      <i className="bi bi-arrow-clockwise"></i>
+                      {!isMobile && " Refresh"}
+                    </Button>
                   </ButtonGroup>
                   <ButtonGroup size="sm">
-                    <Button variant="success" onClick={downloadExcel}><i className="bi bi-file-earmark-excel"></i>{!isMobile && " Export CSV"}</Button>
-                    <Button variant="info" onClick={autoSizeAll}><i className="bi bi-arrows-angle-expand"></i>{!isMobile && " Auto Size"}</Button>
+                    <Button variant="success" onClick={downloadExcel}>
+                      <i className="bi bi-file-earmark-excel"></i>
+                      {!isMobile && " Export CSV"}
+                    </Button>
+                    <Button variant="info" onClick={autoSizeAll}>
+                      <i className="bi bi-arrows-angle-expand"></i>
+                      {!isMobile && " Auto Size"}
+                    </Button>
                   </ButtonGroup>
                   <ButtonGroup size="sm">
                     <Button variant="outline-light" onClick={toggleFullScreen}>
@@ -749,7 +994,8 @@ const NewAnalysisProjectAnalysis = () => {
                       {!isMobile && (isFullScreen ? " Exit" : " Full")}
                     </Button>
                     <Button variant="outline-light" onClick={toggleTheme}>
-                      {theme === "light" ? "🌙" : "☀️"}{!isMobile && (theme === "light" ? " Dark" : " Light")}
+                      {theme === "light" ? "🌙" : "☀️"}
+                      {!isMobile && (theme === "light" ? " Dark" : " Light")}
                     </Button>
                   </ButtonGroup>
                 </div>
@@ -757,96 +1003,148 @@ const NewAnalysisProjectAnalysis = () => {
             </Row>
           </Card.Header>
 
+          {/* ── Editable hint banner ── */}
+          <div
+            style={{
+              background: theme === "dark" ? "#1a2a1a" : "#f0fff0",
+              borderBottom: "1px solid #28a74533",
+              padding: "6px 20px",
+              fontSize: 11,
+              color: theme === "dark" ? "#6fcf97" : "#155724",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                width: 10,
+                height: 10,
+                background: "#28a745",
+                borderRadius: "50%",
+                marginRight: 4,
+              }}
+            ></span>
+            ✏️ Click File Name to load details · Select Location/Type from dropdowns · Press 💾 Save when ready
+          </div>
+
           {/* ── Body ── */}
           <Card.Body style={{ backgroundColor: themeStyles.cardBg, padding: isFullScreen ? 0 : 15 }}>
-            <Tabs id="project-analysis-tabs" activeKey={activeTab} onSelect={(tab) => setActiveTab(tab)} className="mb-3">
-
-              {/* Tab 1 */}
+            <Tabs
+              id="project-analysis-tabs"
+              activeKey={activeTab}
+              onSelect={(tab) => setActiveTab(tab)}
+              className="mb-3"
+            >
+              {/* ── Tab 1 ── */}
               <Tab eventKey={tabs[0]} title={tabs[0]}>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: "50px" }}>
-                    <div className="spinner-border" role="status"><span className="visually-hidden">Loading...</span></div>
+                    <div className="spinner-border" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </div>
                 ) : rowDataTab1.length === 0 ? (
                   <EmptyState />
                 ) : (
-                  <div className="ag-theme-alpine" style={{ height: gridHeight, width: "100%", ...(theme === "dark" && darkGridStyle) }}>
+                  <div
+                    className="ag-theme-alpine"
+                    style={{ height: gridHeight, width: "100%", ...(theme === "dark" && darkGridStyle) }}
+                  >
                     <AgGridReact
+                      {...sharedGridProps}
                       rowData={rowDataTab1}
                       columnDefs={columnDefs}
-                      defaultColDef={defaultColDef}
                       getRowId={(params) => params.data.FILE_NAME}
-                      pagination paginationPageSize={isMobile ? 10 : 20}
                       rowSelection="single"
-                      onCellValueChanged={(params) => { if (params.oldValue !== params.newValue) params.node.setData({ ...params.data, isDirty: true }); }}
-                      suppressMovableColumns={isMobile}
-                      enableRangeSelection={!isMobile}
-                      rowMultiSelectWithClick animateRows={!isMobile}
-                      enableCellTextSelection suppressHorizontalScroll={false}
-                      headerHeight={isMobile ? 40 : 48} rowHeight={isMobile ? 35 : 42}
-                      onGridReady={(p) => { gridRefTab1.current = p.api; setTimeout(autoSizeAll, 500); }}
+                      // ✅ FIX 7: onCellValueChanged sets isDirty=true on ANY field change
+                      //    including changes made via node.setDataValue() from InlineDropdownCell
+                      onCellValueChanged={(params) => {
+                        if (params.oldValue !== params.newValue) {
+                          params.node.setData({ ...params.data, isDirty: true });
+                          // Refresh only the action column to re-evaluate save button state
+                          params.api.refreshCells({
+                            rowNodes: [params.node],
+                            columns: ["action"],
+                            force: true,
+                          });
+                        }
+                      }}
+                      onGridReady={(p) => {
+                        gridRefTab1.current = p.api;
+                        setTimeout(autoSizeAll, 500);
+                      }}
                     />
                   </div>
                 )}
               </Tab>
 
-              {/* Tab 2 */}
+              {/* ── Tab 2 ── */}
               <Tab eventKey={tabs[1]} title={tabs[1]}>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: "50px" }}>
-                    <div className="spinner-border" role="status"><span className="visually-hidden">Loading...</span></div>
+                    <div className="spinner-border" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </div>
                 ) : rowDataTab2.length === 0 ? (
                   <EmptyState />
                 ) : (
-                  <div className="ag-theme-alpine" style={{ height: gridHeight, width: "100%", ...(theme === "dark" && darkGridStyle) }}>
+                  <div
+                    className="ag-theme-alpine"
+                    style={{ height: gridHeight, width: "100%", ...(theme === "dark" && darkGridStyle) }}
+                  >
                     <AgGridReact
+                      {...sharedGridProps}
                       rowData={rowDataTab2}
                       columnDefs={rightColDef}
-                      defaultColDef={defaultColDef}
-                      pagination paginationPageSize={isMobile ? 10 : 20}
                       rowSelection="single"
-                      suppressMovableColumns={isMobile}
-                      enableRangeSelection={!isMobile}
-                      rowMultiSelectWithClick animateRows={!isMobile}
-                      enableCellTextSelection suppressHorizontalScroll={false}
-                      headerHeight={isMobile ? 40 : 48} rowHeight={isMobile ? 35 : 42}
-                      onGridReady={(p) => { gridRefTab2.current = p.api; setTimeout(autoSizeAll, 500); }}
+                      onGridReady={(p) => {
+                        gridRefTab2.current = p.api;
+                        setTimeout(autoSizeAll, 500);
+                      }}
                     />
                   </div>
                 )}
               </Tab>
 
-              {/* Tab 3 */}
+              {/* ── Tab 3 ── */}
               <Tab eventKey={tabs[2]} title={tabs[2]}>
                 {loading ? (
                   <div style={{ textAlign: "center", padding: "50px" }}>
-                    <div className="spinner-border" role="status"><span className="visually-hidden">Loading...</span></div>
+                    <div className="spinner-border" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
                   </div>
                 ) : rowDataTab3.length === 0 ? (
                   <EmptyState />
                 ) : (
-                  <div className="ag-theme-alpine" style={{ height: gridHeight, width: "100%", ...(theme === "dark" && darkGridStyle) }}>
+                  <div
+                    className="ag-theme-alpine"
+                    style={{ height: gridHeight, width: "100%", ...(theme === "dark" && darkGridStyle) }}
+                  >
                     <AgGridReact
+                      {...sharedGridProps}
                       rowData={rowDataTab3}
                       columnDefs={generateColumnDefsTab3}
-                      defaultColDef={defaultColDef}
                       getRowId={(params) => params.data.FILE_NAME}
-                      onSelectionChanged={onSelectionChanged}
-                      pagination paginationPageSize={isMobile ? 10 : 20}
                       rowSelection="single"
-                      onCellValueChanged={(params) => { if (params.oldValue !== params.newValue) params.node.setData({ ...params.data, isDirty: true }); }}
-                      suppressMovableColumns={isMobile}
-                      enableRangeSelection={!isMobile}
-                      rowMultiSelectWithClick animateRows={!isMobile}
-                      enableCellTextSelection suppressHorizontalScroll={false}
-                      headerHeight={isMobile ? 40 : 48} rowHeight={isMobile ? 35 : 42}
-                      onGridReady={(p) => { gridRefTab3.current = p.api; setTimeout(autoSizeAll, 500); }}
+                      onSelectionChanged={onSelectionChanged}
+                      onCellValueChanged={(params) => {
+                        if (params.oldValue !== params.newValue) {
+                          params.node.setData({ ...params.data, isDirty: true });
+                        }
+                      }}
+                      onGridReady={(p) => {
+                        gridRefTab3.current = p.api;
+                        setTimeout(autoSizeAll, 500);
+                      }}
                     />
                   </div>
                 )}
               </Tab>
-
             </Tabs>
           </Card.Body>
         </Card>

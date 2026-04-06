@@ -649,6 +649,7 @@ const PPCProjectListGrid = () => {
                                     paginationPageSize={isMobile ? 10 : 25}
                                     rowSelection="single"
                                     onSelectionChanged={onSelectionChanged}
+                                    suppressRowClickSelection={true} 
                                     suppressMovableColumns={isMobile}
                                     enableRangeSelection={!isMobile}
                                     rowMultiSelectWithClick={false}

@@ -147,7 +147,7 @@ export default function UploadFPData() {
               fontWeight: "bold",
             }}
           >
-            {row.name} :
+            {row.name} 
           </td>
 
           {/* Weight */}

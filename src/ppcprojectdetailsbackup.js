@@ -12,20 +12,6 @@ import 'react-toastify/dist/ReactToastify.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
-// ── Date formatter: "27-10-2025" or "27-10-2025 / 05:38 PM" → "27-Oct-2025 / 05:38 PM"
-const formatDate = (dateStr) => {
-  if (!dateStr) return dateStr;
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return dateStr.replace(
-    /(\d{2})-(\d{2})-(\d{4})/g,
-    (_, dd, mm, yyyy) => {
-      const monthIdx = parseInt(mm, 10) - 1;
-      const monthName = monthNames[monthIdx] || mm;
-      return `${dd}-${monthName}-${yyyy}`;
-    }
-  );
-};
-
 const ProjectDetailsManager = () => {
   const [mainTab, setMainTab] = useState("project-details");
   const [activeTab, setActiveTab] = useState("Foundation");
@@ -40,18 +26,15 @@ const ProjectDetailsManager = () => {
   const [tabData, setTabData] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
   const [showForwardPopup, setShowForwardPopup] = useState(false);
-  // ── CHANGED: selectedSheet → array for multi-select
-  const [selectedSheets, setSelectedSheets] = useState([]);
-  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
   const [tabs, setTabs] = useState([
     "Foundation", "Assly", "Fab", "SMetal", "Hardware", "MtlRqmt", "Packing List", "UDL",
   ]);
-  const [advanceSelectedDepartment, setAdvanceSelectedDepartment] = useState("");
   const [showAdvancePopup, setShowAdvancePopup] = useState(false);
   const [advanceSelectedSheet, setAdvanceSelectedSheet] = useState("");
   const [showDrawingsPopup, setShowDrawingsPopup] = useState(false);
-  // ── CHANGED: drawingsSelectedDepartment → array for multi-select
-  const [drawingsSelectedDepartments, setDrawingsSelectedDepartments] = useState([]);
+  const [drawingsSelectedDepartment, setDrawingsSelectedDepartment] = useState("");
   const [sheetNames, setSheetNames] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
@@ -153,10 +136,11 @@ const ProjectDetailsManager = () => {
 
         const result2 = await res2.json();
         if (result2.status === "success" && result2.data) {
+          // FIX: Only set real API drawings, NO dummy fallback
           const allDrawings = result2.data.flatMap((comment) =>
             comment.documents.map((doc) => ({
               doc_id: doc.doc_id,
-              date: formatDate(comment.comment_date),
+              date: comment.comment_date,
               time: comment.comment_time,
               type: doc.drawing_name,
               fileName: doc.file_path.split("/").pop().replace(".pdf", ""),
@@ -166,11 +150,13 @@ const ProjectDetailsManager = () => {
           );
           setDrawingsData(allDrawings);
         } else {
+          // FIX: Empty array when no drawings — no dummy data
           setDrawingsData([]);
         }
 
         setHistoryLoading(true);
         const result3 = await res3.json();
+        // FIX: Only real history, no dummy fallback
         setHistoryData(result3.status === "success" && result3.data ? result3.data : []);
         setHistoryLoading(false);
 
@@ -191,7 +177,7 @@ const ProjectDetailsManager = () => {
   }, [fileId]);
 
   const openPDF = (filePath) => {
-    if (filePath) window.open(`http://93.127.167.54/Surya_React/surya_dynamic_api/${filePath}`, "_blank");
+    if (filePath) window.open(`https://www.erp.suryaequipments.com${filePath}`, "_blank");
   };
 
   const getModuleColor = (sheetName) => {
@@ -222,28 +208,23 @@ const ProjectDetailsManager = () => {
   const handleSendForward = async () => {
     const employeeId = sessionStorage.getItem('userId');
     if (!employeeId) { toast.error("Employee ID not found. Please login again."); return; }
-    if (selectedSheets.length === 0) { toast.warning("Please select at least one sheet name"); return; }
-    if (selectedDepartments.length === 0) { toast.warning("Please select at least one department"); return; }
+    if (!selectedSheet) { toast.warning("Please select a sheet name"); return; }
+    if (!selectedDepartment) { toast.warning("Please select a department"); return; }
     try {
       const response = await fetch(
         "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/PPCForwardSheetsApi.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileId,
-            department: selectedDepartments,
-            sheetName: selectedSheets,
-            employee_id: employeeId,
-          }),
+          body: JSON.stringify({ fileId, department: [selectedDepartment], sheetName: [selectedSheet], employee_id: employeeId }),
         }
       );
       const result = await response.json();
       if (result.status === "success") {
         toast.success(result.message || "Sheets forwarded successfully!");
         setShowForwardPopup(false);
-        setSelectedSheets([]);
-        setSelectedDepartments([]);
+        setSelectedSheet("");
+        setSelectedDepartment("");
       } else {
         toast.error(result.message || "Failed to forward sheets");
       }
@@ -256,14 +237,14 @@ const ProjectDetailsManager = () => {
     const employeeId = sessionStorage.getItem('userId');
     if (!employeeId) { toast.error("Employee ID not found. Please login again."); return; }
     if (!advanceSelectedSheet) { toast.warning("Please select a sheet name"); return; }
-    if (!advanceSelectedDepartment) { toast.warning("Please select a department"); return; }
+    if (!selectedDepartment) { toast.warning("Please select a department"); return; }
     try {
       const response = await fetch(
         "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/PPCForwardAdvanceApi.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileId, department: [advanceSelectedDepartment], sheetName: [advanceSelectedSheet], employee_id: employeeId }),
+          body: JSON.stringify({ fileId, department: [selectedDepartment], sheetName: [advanceSelectedSheet], employee_id: employeeId }),
         }
       );
       const result = await response.json();
@@ -271,7 +252,7 @@ const ProjectDetailsManager = () => {
         toast.success(result.message || "Advance copy forwarded successfully!");
         setShowAdvancePopup(false);
         setAdvanceSelectedSheet("");
-        setAdvanceSelectedDepartment("");
+        setSelectedDepartment("");
       } else {
         toast.error(result.message || "Failed to forward advance copy");
       }
@@ -280,12 +261,11 @@ const ProjectDetailsManager = () => {
     }
   };
 
-  // ── CHANGED: now sends drawingsSelectedDepartments array (multi), existing drawing ids
   const handleSendDrawings = async () => {
     const employeeId = sessionStorage.getItem('userId');
     if (!employeeId) { toast.error("Employee ID not found. Please login again."); return; }
     if (selectedDrawings.length === 0) { toast.warning("Please select at least one drawing"); return; }
-    if (drawingsSelectedDepartments.length === 0) { toast.warning("Please select at least one department"); return; }
+    if (!drawingsSelectedDepartment) { toast.warning("Please select a department"); return; }
     try {
       const drawingIds = selectedDrawings.map((index) => drawingsData[index]?.doc_id).filter(Boolean);
       const response = await fetch(
@@ -293,19 +273,14 @@ const ProjectDetailsManager = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileId,
-            department: drawingsSelectedDepartments,   // ← array of selected departments
-            drawingIds,
-            employee_id: employeeId,
-          }),
+          body: JSON.stringify({ fileId, department: [drawingsSelectedDepartment], drawingIds, employee_id: employeeId }),
         }
       );
       const result = await response.json();
       if (result.status === "success") {
         toast.success(`Drawings forwarded successfully! ${result.data?.totalRecordsInserted || ''} records inserted.`);
         setShowDrawingsPopup(false);
-        setDrawingsSelectedDepartments([]);
+        setDrawingsSelectedDepartment("");
         setSelectedDrawings([]);
       } else {
         toast.error(result.message || "Failed to forward drawings");
@@ -328,81 +303,6 @@ const ProjectDetailsManager = () => {
     </div>
   );
 
-  // ── NEW: Multi-checkbox select for sheets ─────────────────────────────────
-  const MultiCheckboxSheet = ({ label, loading: isLoading, options, selected, onToggle }) => (
-    <div style={{ marginBottom: "20px" }}>
-      <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666", fontWeight: "500" }}>{label}</label>
-      {isLoading ? (
-        <div style={{ padding: "10px 12px", fontSize: "14px", color: "#999", border: "1px solid #ddd", borderRadius: "6px", background: "#f5f5f5" }}>
-          Loading sheets...
-        </div>
-      ) : (
-        <div style={{ border: "1px solid #ddd", borderRadius: "6px", maxHeight: "180px", overflowY: "auto", background: "#fafafa" }}>
-          {options.length === 0 ? (
-            <div style={{ padding: "12px", color: "#aaa", fontSize: "13px" }}>No sheets available</div>
-          ) : (
-            options.map((opt) => {
-              const val = typeof opt === "string" ? opt : opt.id;
-              const lbl = typeof opt === "string" ? opt : opt.name;
-              const checked = selected.includes(val);
-              return (
-                <label key={val}
-                  style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #eee", background: checked ? "#eef2ff" : "transparent", transition: "background 0.15s" }}>
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(val)}
-                    style={{ width: "16px", height: "16px", accentColor: "#667eea", cursor: "pointer", flexShrink: 0 }} />
-                  <span style={{ fontSize: "14px", color: "#333", fontWeight: checked ? "600" : "400" }}>{lbl}</span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      )}
-      {selected.length > 0 && (
-        <div style={{ marginTop: "6px", fontSize: "12px", color: "#667eea", fontWeight: "600" }}>
-          {selected.length} sheet{selected.length > 1 ? "s" : ""} selected
-        </div>
-      )}
-    </div>
-  );
-
-  // ── NEW: Multi-checkbox select for departments ────────────────────────────
-  const MultiCheckboxDept = ({ label, loading: isLoading, options, selected, onToggle }) => (
-    <div style={{ marginBottom: "20px" }}>
-      <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666", fontWeight: "500" }}>{label}</label>
-      {isLoading ? (
-        <div style={{ padding: "10px 12px", fontSize: "14px", color: "#999", border: "1px solid #ddd", borderRadius: "6px", background: "#f5f5f5" }}>
-          Loading departments...
-        </div>
-      ) : (
-        <div style={{ border: "1px solid #ddd", borderRadius: "6px", maxHeight: "180px", overflowY: "auto", background: "#fafafa" }}>
-          {options.length === 0 ? (
-            <div style={{ padding: "12px", color: "#aaa", fontSize: "13px" }}>No departments available</div>
-          ) : (
-            options.map((opt) => {
-              const val = opt.id;
-              const lbl = opt.name;
-              const checked = selected.includes(val);
-              return (
-                <label key={val}
-                  style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #eee", background: checked ? "#eef2ff" : "transparent", transition: "background 0.15s" }}>
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(val)}
-                    style={{ width: "16px", height: "16px", accentColor: "#667eea", cursor: "pointer", flexShrink: 0 }} />
-                  <span style={{ fontSize: "14px", color: "#333", fontWeight: checked ? "600" : "400" }}>{lbl}</span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      )}
-      {selected.length > 0 && (
-        <div style={{ marginTop: "6px", fontSize: "12px", color: "#667eea", fontWeight: "600" }}>
-          {selected.length} department{selected.length > 1 ? "s" : ""} selected
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Keep original single-select for department (used in Forward Sheets & Advance) ──
   const PopupSelect = ({ label, value, onChange, disabled, placeholder, options, optKey, optLabel }) => (
     <div style={{ marginBottom: "20px" }}>
       <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666", fontWeight: "500" }}>{label}</label>
@@ -426,15 +326,6 @@ const ProjectDetailsManager = () => {
     </div>
   );
 
-  const formatShortDate = (dateString) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, "0");
-    const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
   // ── Status box colors ─────────────────────────────────────────────────────
   const statusBoxes = [
     { key: "smetal", bg: "linear-gradient(135deg,#e0f7fa 0%,#b2ebf2 100%)", color: "#006064", border: "rgba(0,150,136,0.2)" },
@@ -443,91 +334,27 @@ const ProjectDetailsManager = () => {
     { key: "fab",    bg: "linear-gradient(135deg,#e8f5e9 0%,#c8e6c9 100%)", color: "#1b5e20", border: "rgba(76,175,80,0.2)" },
   ];
 
-  // ── Toggle helpers ────────────────────────────────────────────────────────
-  const toggleSheet = (val) => {
-    setSelectedSheets((prev) =>
-      prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
-    );
-  };
-
-  const toggleForwardDept = (val) => {
-    setSelectedDepartments((prev) =>
-      prev.includes(val) ? prev.filter((d) => d !== val) : [...prev, val]
-    );
-  };
-
-  const toggleDrawingDept = (val) => {
-    setDrawingsSelectedDepartments((prev) =>
-      prev.includes(val) ? prev.filter((d) => d !== val) : [...prev, val]
-    );
-  };
-
   return (
     <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#667eea 0%,#764ba2 100%)", fontFamily: "'Inter','Segoe UI',sans-serif" }}>
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop closeOnClick pauseOnHover theme="colored" />
       <style>{`
         @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
         .mobile-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-        .excel-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-family: 'Calibri', 'Segoe UI', Arial, sans-serif;
-          font-size: 13px;
-        }
-        .excel-table th {
-          background: #1f4e79;
-          color: #ffffff;
-          font-weight: 700;
-          font-size: 12px;
-          padding: 7px 10px;
-          border: 1px solid #155a8a;
-          white-space: nowrap;
-          text-align: center;
-          position: sticky;
-          top: 0;
-          z-index: 2;
-          letter-spacing: 0.3px;
-        }
-        .excel-table td {
-          padding: 5px 8px;
-          border: 1px solid #d0d0d0;
-          white-space: nowrap;
-          vertical-align: middle;
-          line-height: 1.3;
-        }
-        .excel-row-yellow td { background-color: #ffff00 !important; color: #000000; font-weight: 700; }
-        .excel-row-blue td { background-color: #bddff7 !important; color: #000000; font-weight: 700; }
-        .excel-row-normal:nth-child(even) td { background-color: #ffffff; }
-        .excel-row-normal:nth-child(odd) td { background-color: #f2f2f2; }
-        .excel-row-normal:hover td { background-color: #cce5ff !important; cursor: default; }
-        .excel-row-yellow:hover td { background-color: #ffe600 !important; }
-        .excel-row-blue:hover td { background-color: #a8d4f0 !important; }
-        .excel-col-id { color: #1f4e79; font-weight: 700; font-size: 11px; text-align: center !important; width: 40px; min-width: 40px; }
-        .excel-col-num { text-align: right !important; font-variant-numeric: tabular-nums; color: #333; }
-        .excel-col-desc { text-align: left !important; min-width: 200px; font-weight: 600; color: #1a1a1a; }
-        .tab-btn { padding: 10px 22px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; border-top-left-radius: 8px; border-top-right-radius: 8px; transition: all 0.2s ease; white-space: nowrap; flex-shrink: 0; letter-spacing: 0.2px; }
-        .tab-btn.active { background: #ffffff; color: #1f4e79; border-bottom: 3px solid #1f4e79; box-shadow: 0 -2px 8px rgba(0,0,0,0.08); }
-        .tab-btn.inactive { background: rgba(255,255,255,0.55); color: #555; border-bottom: 3px solid transparent; }
-        .tab-btn.inactive:hover { background: rgba(255,255,255,0.8); color: #1f4e79; }
-        .excel-header-bar { background: #f0f0f0; border-bottom: 2px solid #c0c0c0; padding: 7px 14px; font-size: 13px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 10px; font-family: 'Calibri', Arial, sans-serif; flex-shrink: 0; overflow-x: auto; white-space: nowrap; }
-        .excel-header-bar .filename { color: #1f4e79; font-weight: 700; font-size: 14px; }
-        .excel-header-bar .sep { color: #aaa; font-weight: 400; }
-        .excel-header-bar .uploader { color: #555; }
-        .excel-container { background: #fff; border-radius: 0 10px 10px 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,0.13); margin-bottom: 28px; border: 1.5px solid #c7c7c7; display: flex; flex-direction: column; }
-        .excel-scroll-area { overflow-x: auto; overflow-y: auto; flex: 1; max-height: 480px; }
       `}</style>
 
       {/* ── Header tabs ── */}
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row" }}>
+        {/* Project Details tab */}
         <button onClick={() => setMainTab("project-details")}
           style={{ flex: 1, background: mainTab === "project-details" ? "linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)" : "linear-gradient(135deg,#a8b8d8 0%,#8e9ebc 100%)", color: "white", border: "none", padding: isMobile ? "14px 16px" : "18px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: "700", fontSize: isMobile ? "14px" : "17px", cursor: "pointer", transition: "all 0.3s ease" }}>
-          <span style={{ flex: 1, textAlign: "left" }}>Project Details</span>
+          <span style={{ flex: 1, textAlign: "left" }}>{isMobile ? "Project Details" : "Project Details"}</span>
           <div style={{ backgroundColor: "rgba(255,255,255,0.25)", borderRadius: "50%", padding: isMobile ? "4px" : "6px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
             onClick={(e) => { e.stopPropagation(); setShowForwardPopup(true); }}>
             <ChevronRight size={isMobile ? 16 : 20} strokeWidth={3} />
           </div>
         </button>
 
+        {/* Advance Copy tab */}
         <button onClick={() => setMainTab("advance-copy")}
           style={{ flex: 1, background: mainTab === "advance-copy" ? "linear-gradient(135deg,#f093fb 0%,#f5576c 100%)" : "linear-gradient(135deg,#e0e0e0 0%,#c4c4c4 100%)", color: mainTab === "advance-copy" ? "white" : "#666", border: "none", padding: isMobile ? "14px 16px" : "18px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", fontWeight: "700", fontSize: isMobile ? "14px" : "17px", cursor: "pointer", transition: "all 0.3s ease" }}>
           <span style={{ flex: 1, textAlign: "left" }}>{isMobile ? "Advance Copy" : "Advance Copy (Long Lead Material)"}</span>
@@ -538,62 +365,37 @@ const ProjectDetailsManager = () => {
         </button>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          POPUPS
-      ══════════════════════════════════════════════════════════════════════ */}
-
-      {/* Forward Sheets Popup — multi-checkbox sheets, single dept */}
+      {/* ── Forward Sheets Popup ── */}
       {showForwardPopup && (
-        <Popup title="Forward Sheets" onClose={() => { setShowForwardPopup(false); setSelectedSheets([]); setSelectedDepartments([]); }}>
-          <MultiCheckboxSheet
-            label="Select Sheet Name(s)"
-            loading={loadingSheets}
-            options={sheetNames.map((s) => (typeof s === "string" ? { id: s, name: s } : s))}
-            selected={selectedSheets}
-            onToggle={toggleSheet}
-          />
-          <MultiCheckboxDept
-            label="Select Department(s)"
-            loading={loadingDepts}
-            options={departments}
-            selected={selectedDepartments}
-            onToggle={toggleForwardDept}
-          />
-          <PopupActions
-            onClose={() => { setShowForwardPopup(false); setSelectedSheets([]); setSelectedDepartments([]); }}
-            onSend={handleSendForward}
-            disabled={selectedSheets.length === 0 || selectedDepartments.length === 0}
-          />
+        <Popup title="Forward Sheets" onClose={() => { setShowForwardPopup(false); setSelectedSheet(""); setSelectedDepartment(""); }}>
+          <PopupSelect label="Select Sheet Name" value={selectedSheet} onChange={(e) => setSelectedSheet(e.target.value)}
+            disabled={loadingSheets} placeholder="Select a sheet..." options={sheetNames.map((s) => ({ id: s, name: s }))} optKey="id" optLabel="name" />
+          <PopupSelect label="Select Department" value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}
+            disabled={loadingDepts} placeholder="Select a department..." options={departments} optKey="id" optLabel="name" />
+          <PopupActions onClose={() => { setShowForwardPopup(false); setSelectedSheet(""); setSelectedDepartment(""); }}
+            onSend={handleSendForward} disabled={!selectedSheet || !selectedDepartment} />
         </Popup>
       )}
 
-      {/* Advance Copy Popup — single sheet, single dept (unchanged) */}
+      {/* ── Forward Advance Copy Popup ── */}
       {showAdvancePopup && (
-        <Popup title="Forward Advance Copy" onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setAdvanceSelectedDepartment(""); }}>
+        <Popup title="Forward Advance Copy" onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setSelectedDepartment(""); }}>
           <PopupSelect label="Select Sheet Name" value={advanceSelectedSheet} onChange={(e) => setAdvanceSelectedSheet(e.target.value)}
             disabled={false} placeholder="Select a sheet..." options={tabs.map((t) => ({ id: t, name: t }))} optKey="id" optLabel="name" />
-          <PopupSelect label="Select Department" value={advanceSelectedDepartment} onChange={(e) => setAdvanceSelectedDepartment(e.target.value)}
+          <PopupSelect label="Select Department" value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}
             disabled={loadingDepts} placeholder="Select a department..." options={departments} optKey="id" optLabel="name" />
-          <PopupActions onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setAdvanceSelectedDepartment(""); }}
-            onSend={handleSendAdvance} disabled={!advanceSelectedSheet || !advanceSelectedDepartment} />
+          <PopupActions onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setSelectedDepartment(""); }}
+            onSend={handleSendAdvance} disabled={!advanceSelectedSheet || !selectedDepartment} />
         </Popup>
       )}
 
-      {/* Forward Drawings Popup — multi-checkbox departments */}
+      {/* ── Forward Drawings Popup ── */}
       {showDrawingsPopup && (
-        <Popup title="Forward Drawings" onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartments([]); }}>
-          <MultiCheckboxDept
-            label="Select Department(s)"
-            loading={loadingDepts}
-            options={departments}
-            selected={drawingsSelectedDepartments}
-            onToggle={toggleDrawingDept}
-          />
-          <PopupActions
-            onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartments([]); }}
-            onSend={handleSendDrawings}
-            disabled={drawingsSelectedDepartments.length === 0}
-          />
+        <Popup title="Forward Drawings" onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartment(""); }}>
+          <PopupSelect label="Select Department" value={drawingsSelectedDepartment} onChange={(e) => setDrawingsSelectedDepartment(e.target.value)}
+            disabled={loadingDepts} placeholder="Select a department..." options={departments} optKey="id" optLabel="name" />
+          <PopupActions onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartment(""); }}
+            onSend={handleSendDrawings} disabled={!drawingsSelectedDepartment} />
         </Popup>
       )}
 
@@ -601,8 +403,9 @@ const ProjectDetailsManager = () => {
           MAIN CONTENT
       ══════════════════════════════════════════════════════════════════════ */}
       {mainTab === "project-details" ? (
-        <div style={{ padding: isMobile ? "16px" : "28px" }}>
+        <div style={{ padding: isMobile ? "16px" : "32px" }}>
 
+          {/* Loading */}
           {loading && (
             <div style={{ background: "rgba(255,255,255,0.95)", padding: isMobile ? "24px" : "32px", borderRadius: "16px", textAlign: "center", marginBottom: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
               <div style={{ display: "inline-block", width: "40px", height: "40px", border: "4px solid #f3f3f3", borderTop: "4px solid #667eea", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: "16px" }} />
@@ -610,6 +413,7 @@ const ProjectDetailsManager = () => {
             </div>
           )}
 
+          {/* Error */}
           {error && (
             <div style={{ background: "linear-gradient(135deg,#ffebee 0%,#ffcdd2 100%)", padding: isMobile ? "16px 20px" : "20px 24px", borderRadius: "12px", color: "#c62828", fontSize: isMobile ? "14px" : "15px", fontWeight: "600", marginBottom: "24px", border: "2px solid rgba(198,40,40,0.3)", display: "flex", alignItems: "center", gap: "12px" }}>
               <Clock size={20} />{error}
@@ -617,115 +421,88 @@ const ProjectDetailsManager = () => {
           )}
 
           {!loading && apiData && (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: "12px", marginBottom: "20px" }}>
-              {statusBoxes.map(({ key, bg, color, border }) => (
-                <div key={key} style={{ background: bg, padding: isMobile ? "12px 14px" : "16px 20px", borderRadius: "12px", color, fontSize: isMobile ? "12px" : "13px", fontWeight: "600", boxShadow: "0 4px 15px rgba(0,0,0,0.08)", border: `2px solid ${border}`, display: "flex", alignItems: "flex-start", gap: "8px", minHeight: "60px" }}>
-                  <Clock size={isMobile ? 14 : 16} style={{ flexShrink: 0, marginTop: "2px" }} />
-                  <span style={{ wordBreak: "break-word", lineHeight: "1.4" }}>{parseStatusMessage(apiData[key]).text}</span>
-                </div>
-              ))}
-            </div>
+            <>
+              {/* FIX: 4 status boxes in ONE row, removed search input */}
+              <div style={{
+                display: "grid",
+                // 4 equal columns on desktop, 2 on small mobile, 1 on very small
+                gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)",
+                gap: "12px",
+                marginBottom: "24px",
+              }}>
+                {statusBoxes.map(({ key, bg, color, border }) => (
+                  <div key={key} style={{ background: bg, padding: isMobile ? "12px 14px" : "16px 20px", borderRadius: "12px", color, fontSize: isMobile ? "12px" : "13px", fontWeight: "600", boxShadow: "0 4px 15px rgba(0,0,0,0.08)", border: `2px solid ${border}`, display: "flex", alignItems: "flex-start", gap: "8px", minHeight: "60px" }}>
+                    <Clock size={isMobile ? 14 : 16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                    <span style={{ wordBreak: "break-word", lineHeight: "1.4" }}>{parseStatusMessage(apiData[key]).text}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
+          {/* FIX: "Send To Rackline" button REMOVED */}
+
+          {/* Tabs */}
           {!loading && (
             <>
-              <div className={isMobile ? "mobile-scroll" : ""}
-                style={{ display: "flex", gap: "4px", overflowX: "auto", paddingBottom: "0" }}>
+              <div className={isMobile ? "mobile-scroll" : ""} style={{ display: "flex", gap: "6px", marginBottom: "0", overflowX: "auto", paddingBottom: "4px" }}>
                 {tabs.map((tab) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
-                    className={`tab-btn ${activeTab === tab ? "active" : "inactive"}`}>
+                    style={{ padding: isMobile ? "12px 20px" : "14px 28px", border: "none", background: activeTab === tab ? "linear-gradient(135deg,#ffffff 0%,#f8f9fa 100%)" : "rgba(255,255,255,0.5)", color: activeTab === tab ? "#667eea" : "#666", fontSize: isMobile ? "13px" : "14px", fontWeight: activeTab === tab ? "700" : "600", cursor: "pointer", borderTopLeftRadius: "10px", borderTopRightRadius: "10px", transition: "all 0.3s ease", borderBottom: activeTab === tab ? "4px solid #667eea" : "none", whiteSpace: "nowrap", flexShrink: 0 }}>
                     {tab}
                   </button>
                 ))}
               </div>
 
-              <div className="excel-container">
-                <div className="excel-header-bar">
-                  {tabData ? (
-                    <>
-                      <span className="filename">{tabData.file_name}</span>
-                      <span className="sep">|</span>
-                      <span className="uploader">
-                        Uploaded By And Time :&nbsp;
-                        <strong>{tabData.uploaded_by}</strong>&nbsp;
-                        {formatDate(tabData.uploaded_time)}
-                      </span>
-                    </>
-                  ) : (
-                    <span>Loading...</span>
-                  )}
+              {/* Tab table */}
+              <div style={{ backgroundColor: "white", borderRadius: "0 12px 12px 12px", overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.12)", marginBottom: isMobile ? "24px" : "32px", maxHeight: isMobile ? "400px" : "500px", display: "flex", flexDirection: "column", border: "2px solid #e9ecef" }}>
+                <div style={{ background: "linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%)", padding: isMobile ? "12px 16px" : "16px 24px", borderBottom: "3px solid #dee2e6", fontSize: isMobile ? "12px" : "14px", fontWeight: "700", color: "#495057", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0, overflowX: "auto" }}>
+                  <User size={isMobile ? 16 : 18} style={{ color: "#667eea", flexShrink: 0 }} />
+                  <span style={{ whiteSpace: isMobile ? "nowrap" : "normal" }}>
+                    {tabData ? `${tabData.file_name} | Uploaded By And Time : ${tabData.uploaded_by} ${tabData.uploaded_time}` : "Loading..."}
+                  </span>
                 </div>
 
                 {tabLoading ? (
-                  <div style={{ padding: "60px", textAlign: "center" }}>
-                    <div style={{ display: "inline-block", width: "36px", height: "36px", border: "4px solid #f3f3f3", borderTop: "4px solid #1f4e79", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
-                    <div style={{ fontSize: "15px", fontWeight: "700", color: "#1f4e79", marginTop: "14px" }}>Loading {activeTab} data...</div>
+                  <div style={{ padding: isMobile ? "40px 20px" : "60px", textAlign: "center" }}>
+                    <div style={{ display: "inline-block", width: isMobile ? "30px" : "40px", height: isMobile ? "30px" : "40px", border: "4px solid #f3f3f3", borderTop: "4px solid #667eea", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                    <div style={{ fontSize: isMobile ? "14px" : "16px", fontWeight: "700", color: "#667eea", marginTop: "16px" }}>Loading {activeTab} data...</div>
                   </div>
                 ) : tabData && tabData.rows && tabData.rows.length > 0 ? (
-                  <div className="excel-scroll-area">
-                    <table className="excel-table">
-                      <thead>
-                        <tr>
-                          {activeTab === "Packing List" && (
-                            <th style={{ width: "40px" }}>✓</th>
-                          )}
-                          {(() => {
-                            const firstYellowRow = tabData.rows.find(r => r.highlight === "yellow" && r.data && r.data.some(d => d !== ""));
-                            const headerData = firstYellowRow ? firstYellowRow.data : (tabData.columns || []);
-                            return headerData.map((col, i) => (
-                              <th key={i} style={{ minWidth: i === 1 ? "200px" : i === 0 ? "45px" : "80px" }}>
-                                {col || `COL_${i}`}
-                              </th>
-                            ));
-                          })()}
-                        </tr>
-                      </thead>
+                  <div style={{ overflowX: "auto", overflowY: "auto", flex: 1 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", border: "1px solid #dee2e6" }}>
                       <tbody>
-                        {tabData.rows.map((row, idx) => {
-                          const isYellow = row.highlight === "yellow";
-                          const isBlue   = row.highlight === "#bddff7";
-                          const rowClass = isYellow ? "excel-row-yellow" : isBlue ? "excel-row-blue" : "excel-row-normal";
-                          return (
-                            <tr key={idx} className={rowClass}>
-                              {activeTab === "Packing List" && (
-                                <td style={{ textAlign: "center", padding: "4px 8px" }}>
-                                  {!isYellow && !isBlue && (
-                                    <input type="checkbox"
-                                      checked={selectedDrawings.includes(idx)}
-                                      onChange={() => toggleDrawingSelection(idx)}
-                                      style={{ width: "15px", height: "15px", cursor: "pointer", accentColor: "#1f4e79" }} />
-                                  )}
-                                </td>
-                              )}
-                              {row.data && row.data.map((cell, cellIdx) => {
-                                const isIdCol   = cellIdx === 0;
-                                const isDescCol = cellIdx === 1;
-                                const isNum = cellIdx > 1 && cell !== "" && !isNaN(cell);
-                                return (
-                                  <td key={cellIdx}
-                                    className={isIdCol ? "excel-col-id" : isDescCol ? "excel-col-desc" : isNum ? "excel-col-num" : ""}
-                                    style={{ fontWeight: isYellow ? "700" : isIdCol ? "700" : isDescCol ? "600" : "400", color: isYellow ? "#000" : isIdCol ? "#1f4e79" : isDescCol ? "#111" : "#333", fontSize: isIdCol ? "11px" : "13px" }}>
-                                    {cell !== null && cell !== undefined ? cell : ""}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
+                        {tabData.rows.map((row, idx) => (
+                          <tr key={idx} style={{ backgroundColor: row.highlight ? "#fff3cd" : "transparent", transition: "all 0.2s ease" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = row.highlight ? "#ffe69c" : "#f8f9ff"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = row.highlight ? "#fff3cd" : "transparent"; }}>
+                            {activeTab === "Packing List" && (
+                              <td style={{ padding: isMobile ? "12px 16px" : "18px 24px", textAlign: "center", border: "1px solid #dee2e6", width: "50px" }}>
+                                <input type="checkbox" checked={selectedDrawings.includes(idx)} onChange={() => toggleDrawingSelection(idx)}
+                                  style={{ width: "18px", height: "18px", cursor: "pointer", accentColor: "#667eea" }} />
+                              </td>
+                            )}
+                            {row.data.map((cell, cellIdx) => (
+                              <td key={cellIdx} style={{ padding: isMobile ? "12px 16px" : "18px 24px", fontSize: cellIdx <= 1 ? (isMobile ? "13px" : "15px") : (isMobile ? "12px" : "14px"), fontWeight: cellIdx === 0 ? "700" : cellIdx === 1 ? "600" : "500", color: cellIdx === 0 ? "#667eea" : cellIdx === 1 ? "#2c3e50" : "#7f8c8d", textAlign: cellIdx <= 1 ? "left" : "right", minWidth: cellIdx === 1 ? (isMobile ? "200px" : "250px") : cellIdx <= 3 ? (isMobile ? "120px" : "150px") : (isMobile ? "80px" : "100px"), whiteSpace: cellIdx === 1 ? "normal" : "nowrap", border: "1px solid #dee2e6" }}>
+                                {cell || (cellIdx > 1 ? "0" : "")}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <div style={{ padding: "60px", textAlign: "center", color: "#95a5a6", fontSize: "15px", fontWeight: "600" }}>
+                  <div style={{ padding: isMobile ? "40px 20px" : "60px", textAlign: "center", color: "#95a5a6", fontSize: isMobile ? "14px" : "16px", fontWeight: "600" }}>
                     No data available for {activeTab}
                   </div>
                 )}
               </div>
 
-              {/* ── Drawings + History ── */}
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.8fr 1fr", gap: isMobile ? "20px" : "28px" }}>
+              {/* Drawings + History */}
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.8fr 1fr", gap: isMobile ? "24px" : "32px" }}>
 
-                {/* Uploaded Drawings */}
+                {/* ── Uploaded Drawings ── */}
                 <div style={{ backgroundColor: "white", borderRadius: "16px", padding: isMobile ? "20px" : "28px", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", paddingBottom: "16px", borderBottom: "3px solid #f0f0f0", flexWrap: "wrap", gap: "12px" }}>
                     <h3 style={{ margin: 0, fontSize: isMobile ? "16px" : "18px", fontWeight: "700", color: "#2c3e50", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -752,6 +529,7 @@ const ProjectDetailsManager = () => {
                     </div>
                   )}
 
+                  {/* FIX: Show "No drawings" when array is empty, no dummy data */}
                   {drawingsData.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "40px 20px", color: "#95a5a6", fontSize: isMobile ? "14px" : "15px", fontWeight: "600" }}>
                       <FileText size={40} style={{ marginBottom: "12px", opacity: 0.3 }} />
@@ -783,7 +561,7 @@ const ProjectDetailsManager = () => {
                               <span style={{ color: "#7f8c8d", fontWeight: "600" }}>Date: {drawing.date}</span>
                               <span style={{ color: "#2c3e50", fontWeight: "700", fontSize: "12px" }}>{drawing.type}</span>
                               <span style={{ color: "#34495e", fontWeight: "500", fontSize: "13px" }}>{drawing.fileName}</span>
-                              <div style={{ background: "linear-gradient(135deg,#e74c3c 0%,#c0392b 100%)", color: "white", padding: "8px 12px", borderRadius: "8px", textAlign: "center", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", transition: "transform 0.2s" }}
+                              <div style={{ background: "linear-gradient(135deg,#e74c3c 0%,#c0392b 100%)", color: "white", padding: "8px 12px", borderRadius: "8px", textAlign: "center", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                                 onClick={() => openPDF(drawing.filePath)}
                                 onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}>
@@ -799,7 +577,7 @@ const ProjectDetailsManager = () => {
                   )}
                 </div>
 
-                {/* History */}
+                {/* ── History ── */}
                 <div style={{ backgroundColor: "white", borderRadius: "16px", padding: isMobile ? "20px" : "28px", boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}>
                   <h3 style={{ margin: "0 0 24px 0", fontSize: isMobile ? "16px" : "18px", fontWeight: "700", color: "#2c3e50", paddingBottom: "16px", borderBottom: "3px solid #f0f0f0", display: "flex", alignItems: "center", gap: "10px" }}>
                     <Clock size={isMobile ? 20 : 22} style={{ color: "#667eea" }} />History
@@ -811,6 +589,7 @@ const ProjectDetailsManager = () => {
                       <div style={{ fontSize: "14px", color: "#7f8c8d", marginTop: "12px", fontWeight: "600" }}>Loading history...</div>
                     </div>
                   ) : historyData.length === 0 ? (
+                    // FIX: Show "No history" when empty, no dummy data
                     <div style={{ textAlign: "center", padding: "40px 20px", color: "#95a5a6", fontSize: isMobile ? "13px" : "14px", fontWeight: "600" }}>
                       <Clock size={40} style={{ marginBottom: "12px", opacity: 0.3 }} />
                       <div>No history records found</div>
@@ -830,9 +609,7 @@ const ProjectDetailsManager = () => {
                               <span style={{ fontSize: isMobile ? "12px" : "13px", fontWeight: "700", color: getModuleColor(item.sheet_name), background: `${getModuleColor(item.sheet_name)}15`, padding: isMobile ? "5px 10px" : "6px 12px", borderRadius: "6px", border: `1.5px solid ${getModuleColor(item.sheet_name)}40` }}>
                                 {item.sheet_name}
                               </span>
-                              <span style={{ fontSize: isMobile ? "10px" : "11px", color: "#95a5a6", fontWeight: "600" }}>
-                                {formatShortDate(item.timestamp)}
-                              </span>
+                              <span style={{ fontSize: isMobile ? "10px" : "11px", color: "#95a5a6", fontWeight: "600" }}>{item.timestamp}</span>
                             </div>
                             <div style={{ fontSize: isMobile ? "12px" : "13px", color: "#34495e", fontWeight: "600", marginBottom: "6px" }}>
                               <span style={{ color: "#7f8c8d" }}>From:</span> {item.sender}
@@ -851,6 +628,7 @@ const ProjectDetailsManager = () => {
           )}
         </div>
       ) : (
+        // Advance Copy placeholder
         <div style={{ padding: isMobile ? "16px" : "32px", textAlign: "center" }}>
           <div style={{ background: "white", borderRadius: "16px", padding: isMobile ? "40px 24px" : "60px 40px", boxShadow: "0 8px 32px rgba(0,0,0,0.12)", maxWidth: "600px", margin: "0 auto" }}>
             <div style={{ width: isMobile ? "60px" : "80px", height: isMobile ? "60px" : "80px", background: "linear-gradient(135deg,#f093fb 0%,#f5576c 100%)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 8px 24px rgba(245,87,108,0.4)" }}>

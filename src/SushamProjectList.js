@@ -97,33 +97,23 @@ const SushamProjectList = () => {
 
     // Handle selection changed
     const onSelectionChanged = (event) => {
+
         const selectedNodes = event.api.getSelectedNodes();
-        const selectedData = selectedNodes.map(node => node.data);
-        setSelectedRows(selectedData);
-
-        // Auto-navigate when a row is selected (if enabled)
-        if (autoNavigateOnSelect && selectedData.length === 1) {
-            const selectedRecord = selectedData[0];
-
-            // Check if fileid exists
-            if (!selectedRecord.fileid) {
-                toast.error('File ID not found in selected record');
-                return;
-            }
-
-            // Show a brief toast before navigating
-            toast.info(`Navigating to details for ${selectedRecord.file_name}...`);
-
-            // Navigate after a short delay to show the toast
-            setTimeout(() => {
-                // Navigate to the project detail page with fileid
-                navigate(`/susham/project-detail/${selectedRecord.fileid}`);
-            }, 500);
+    
+        if (selectedNodes.length === 0) return;
+    
+        const selectedRecord = selectedNodes[0].data;
+    
+        if (!selectedRecord?.fileid) {
+            toast.error('File ID not found');
+            return;
         }
+    
+        navigate(`/susham/project-detail/${selectedRecord.fileid}/${selectedRecord.file_name}`);
     };
-
     // Handle manual navigation to detail page
     const handleNavigateToDetail = () => {
+        alert("in function");
         if (selectedRows.length === 0) {
             toast.error('Please select at least one record to proceed');
             return;

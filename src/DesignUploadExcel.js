@@ -161,11 +161,13 @@ const PPCBasicEleWork = () => {
       {
         headerName: "FILE NO",
         field: "FILE_NAME",
+        checkboxSelection: true,
         width: isMobile ? 180 : 250,
         pinned: "left",
         floatingFilter: true,
         sortable: true,
         filter: true,
+        
         cellStyle: { fontWeight: "bold" },
       },
       {
@@ -202,30 +204,27 @@ const PPCBasicEleWork = () => {
           if (!params.value) return "";
         
           try {
-            // Split date and time
             const [datePart, timePartRaw] = params.value.split("/");
         
             const [day, month, year] = datePart.trim().split("-");
         
-            // Clean extra spaces in time
-            const timePart = timePartRaw.trim().replace(/\s+/g, " "); 
-            // "02:31 PM"
+            // Clean time (keep as it is)
+            const timePart = timePartRaw.trim().replace(/\s+/g, " ");
         
-            // Create proper date string
-            const formatted = `${year}-${month}-${day} ${timePart}`;
+            // Convert month number → short name
+            const dateObj = new Date(`${year}-${month}-${day}`);
         
-            const dateObj = new Date(formatted);
+            if (isNaN(dateObj)) return params.value;
         
-            return isNaN(dateObj)
-              ? params.value
-              : dateObj.toLocaleString("en-GB", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                });
+            const formattedDate = dateObj.toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            });
+        
+            // ✅ Final: "01 Oct 2026 02:31 PM"
+            return `${formattedDate} ${timePart}`;
+        
           } catch (e) {
             return params.value;
           }
@@ -653,6 +652,7 @@ setLoading(true);
                       pagination={true}
                       paginationPageSize={isMobile ? 10 : 20}
                       rowSelection="single"
+                      suppressRowClickSelection={true}  
                       onSelectionChanged={onSelectionChanged}
                       suppressMovableColumns={isMobile}
                       enableRangeSelection={!isMobile}

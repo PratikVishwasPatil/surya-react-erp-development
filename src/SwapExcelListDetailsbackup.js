@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import { ModuleRegistry } from "ag-grid-community";
 import {
@@ -69,7 +71,7 @@ const PackingListManager = () => {
     const gridRef = useRef();
     const API_BASE_URL = "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api";
 
-    const tabs = ['Metal', 'Foundation', 'Fabrication', 'Assembly'];
+    const tabs = ['SMetal', 'Foundation', 'Fabrication', 'Assembly'];
 
     // Fetch Metal data
     const fetchMetalData = async () => {
@@ -98,7 +100,7 @@ const PackingListManager = () => {
                     col13: item.col13 || '',
                     col14: item.col14 || '',
                     wt: item.wt || '0',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time 
                 }));
                 setMetalRowData(mappedData);
                 setFileName(result.fileName || `File-${fileId}`);
@@ -131,7 +133,7 @@ const PackingListManager = () => {
                     sqft: item.sqft || '',
                     wtMtr: item.wtMtr || '',
                     wt: item.wt || '0',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time 
                 }));
                 setFoundationRowData(mappedData);
                 setFileName(result.fileName || `File-${fileId}`);
@@ -163,7 +165,7 @@ const PackingListManager = () => {
                     sqft: item.sqft || '',
                     color: item.color || '',
                     weight: item.weight || '0',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time 
                 }));
                 setFabricationRowData(mappedData);
                 setFileName(result.fileName || `File-${fileId}`);
@@ -194,7 +196,7 @@ const PackingListManager = () => {
                     qty: item.qty || '0',
                     col6: item.col6 || '',
                     col7: item.col7 || '',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time 
                 }));
                 setAssemblyRowData(mappedData);
                 setFileName(result.fileName || `File-${fileId}`);
@@ -223,17 +225,17 @@ const PackingListManager = () => {
     const EditableCell = (props) => {
         const { value, node, colDef } = props;
         const [inputValue, setInputValue] = React.useState(value || "");
-
+    
         React.useEffect(() => {
             setInputValue(value || "");
         }, [value]);
-
+    
         const handleChange = (e) => {
             const newValue = e.target.value;
             setInputValue(newValue);
             node.setDataValue(colDef.field, newValue);
         };
-
+    
         return (
             <input
                 type="text"
@@ -247,11 +249,12 @@ const PackingListManager = () => {
                     padding: "8px",
                     fontSize: "13px",
                     backgroundColor: "transparent",
-                    textAlign: "center"
+                    textAlign: "right"  // Added right alignment
                 }}
             />
         );
     };
+
    const MetalActionCell = (params) => {
         const handleSave = async () => {
             try {
@@ -307,7 +310,7 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert('Record updated successfully!');
+                    toast.success('Record updated successfully!');
                     await fetchMetalData();
                 } else {
                     if (button) {
@@ -318,11 +321,16 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert(`Error: ${result.message}`);
+                    // alert(`Error: ${result.message}`);
+                    toast.error(`Error: ${result.message}`);
+
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                alert('Error updating record');
+                // alert('Error updating record');
+                toast.error(`Error updating record`);
+
+
             }
         };
 
@@ -390,7 +398,9 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert('Record updated successfully!');
+                    // alert('Record updated successfully!');
+                    toast.success(`Record updated successfully!`);
+
                     await fetchFoundationData();
                 } else {
                     if (button) {
@@ -401,11 +411,15 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert(`Error: ${result.message}`);
+                    // alert(`Error: ${result.message}`);
+                    toast.error(`Error: ${result.message}`);
+
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                alert('Error updating record');
+                // alert('Error updating record');
+                toast.error('Error updating record');
+
             }
         };
 
@@ -472,7 +486,9 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert('Record updated successfully!');
+                    // alert('Record updated successfully!');
+                    toast.success(`Record updated successfully!`);
+
                     await fetchFabricationData();
                 } else {
                     if (button) {
@@ -483,11 +499,15 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert(`Error: ${result.message}`);
+                    // alert(`Error: ${result.message}`);
+                    toast.error(`Error: ${result.message}`);
+
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                alert('Error updating record');
+                // alert('Error updating record');
+                toast.error('Error updating record');
+
             }
         };
 
@@ -553,7 +573,9 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert('Record updated successfully!');
+                    // alert('Record updated successfully!');
+                    toast.success(`Record updated successfully!`);
+
                     await fetchAssemblyData();
                 } else {
                     if (button) {
@@ -564,11 +586,15 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    alert(`Error: ${result.message}`);
+                    // alert(`Error: ${result.message}`);
+                    toast.error(`Error: ${result.message}`);
+
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                alert('Error updating record');
+                // alert('Error updating record');
+                toast.error('Error updating record');
+
             }
         };
 
@@ -621,19 +647,20 @@ const PackingListManager = () => {
     // Column definitions for Metal
     const metalColumnDefs = useMemo(() => [
         {
-            headerName: "Index",
-            field: "index",
-            width: 80,
-            pinned: 'left',
-            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-        },
-        {
-            headerName: "DT_RowId",
-            field: "dbId",
-            width: 80,
-            pinned: 'left',
-            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-        },
+        headerName: "Index",
+        field: "index",
+        width: 80,
+        pinned: 'left',
+        cellRenderer: EditableCell,  // Changed to editable
+        cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
+    },
+    {
+        headerName: "DT_RowId",
+        field: "dbId",
+        width: 80,
+        pinned: 'left',
+        cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
+    },
         {
             headerName: "Action",
             field: "action",
@@ -668,6 +695,7 @@ const PackingListManager = () => {
             field: "index",
             width: 80,
             pinned: 'left',
+            cellRenderer: EditableCell,  // Changed to editable
             cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         {
@@ -704,6 +732,7 @@ const PackingListManager = () => {
             field: "index",
             width: 80,
             pinned: 'left',
+            cellRenderer: EditableCell,  // Changed to editable
             cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         {
@@ -739,6 +768,7 @@ const PackingListManager = () => {
             field: "index",
             width: 80,
             pinned: 'left',
+            cellRenderer: EditableCell,  // Changed to editable
             cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         {
@@ -774,7 +804,9 @@ const PackingListManager = () => {
 
     const handleAddMetal = async () => {
         if (!metalFormData.packingMaterial) {
-            alert('Please enter a packing material');
+            // alert('Please enter a packing material');
+            toast.error(`Please enter a packing material`);
+
             return;
         }
 
@@ -807,7 +839,9 @@ const PackingListManager = () => {
 
             const result = await response.json();
             if (result.status === 'success') {
-                alert('Material added successfully!');
+                // alert('Material added successfully!');
+                toast.success(`Material added successfully!`);
+
                 setMetalFormData({
                     packingMaterial: '', cw: '', ch: '', hl: '', qty: '', w: '', h: '', qty1: '',
                     wt: '', sq_m: '', sqft: '', colpc: '', col11: '', matlReqmt: '', col13: '', col14: '', index: ''
@@ -815,11 +849,15 @@ const PackingListManager = () => {
                 setShowAddForm(false);
                 await fetchMetalData();
             } else {
-                alert(`Error: ${result.message || 'Failed to add material'}`);
+                // alert(`Error: ${result.message || 'Failed to add material'}`);
+                toast.error(`Error: ${result.message || 'Failed to add material'}`);
+
             }
         } catch (error) {
             console.error('Error adding material:', error);
-            alert('Error adding material: ' + error.message);
+            // alert('Error adding material: ' + error.message);
+            toast.error('Error adding material: ' + error.message);
+
         } finally {
             setLoading(false);
         }
@@ -827,7 +865,9 @@ const PackingListManager = () => {
 
     const handleAddFoundation = async () => {
         if (!foundationFormData.specification) {
-            alert('Please enter a specification');
+            // alert('Please enter a specification');
+            toast.error(`Please enter a specification`);
+
             return;
         }
 
@@ -853,18 +893,24 @@ const PackingListManager = () => {
 
             const result = await response.json();
             if (result.status === 'success') {
-                alert('Foundation item added successfully!');
+                // alert('Foundation item added successfully!');
+                toast.success(`Foundation item added successfully!`);
+
                 setFoundationFormData({
                     specification: '', moc: '', size: '', l: '', qty: '', mtrs: '', sqft: '', wtMtr: '', wt: '', index: ''
                 });
                 setShowAddForm(false);
                 await fetchFoundationData();
             } else {
-                alert(`Error: ${result.message || 'Failed to add foundation item'}`);
+                // alert(`Error: ${result.message || 'Failed to add foundation item'}`);
+                toast.error(`Error: ${result.message || 'Failed to add foundation item'}`);
+
             }
         } catch (error) {
             console.error('Error adding foundation item:', error);
-            alert('Error adding foundation item: ' + error.message);
+            // alert('Error adding foundation item: ' + error.message);
+            toast.error(`Error adding foundation item: ' + error.message'}`);
+
         } finally {
             setLoading(false);
         }
@@ -872,7 +918,8 @@ const PackingListManager = () => {
 
     const handleAddFab = async () => {
         if (!fabricationFormData.specification) {
-            alert('Please enter a specification');
+            // alert('Please enter a specification');
+            toast.error('Please enter a specification');
             return;
         }
 
@@ -897,18 +944,24 @@ const PackingListManager = () => {
 
             const result = await response.json();
             if (result.status === 'success') {
-                alert('Fabrication item added successfully!');
+                // alert('Fabrication item added successfully!');
+            toast.success('Fabrication item added successfully!');
+
                 setFabricationFormData({
                     specification: '', col2: '', inMm: '', qty: '', mtrs: '', sqft: '', color: '', weight: '', index: ''
                 });
                 setShowAddForm(false);
                 await fetchFabricationData();
             } else {
-                alert(`Error: ${result.message || 'Failed to add fabrication item'}`);
+                // alert(`Error: ${result.message || 'Failed to add fabrication item'}`);
+            toast.error(`Error: ${result.message || 'Failed to add fabrication item'}`);
+
             }
         } catch (error) {
             console.error('Error adding fabrication item:', error);
-            alert('Error adding fabrication item: ' + error.message);
+            // alert('Error adding fabrication item: ' + error.message);
+            toast.error('Error adding fabrication item: ' + error.message);
+
         } finally {
             setLoading(false);
         }
@@ -916,7 +969,9 @@ const PackingListManager = () => {
 
     const handleAddAssembly = async () => {
         if (!assemblyFormData.assemblyMaterial) {
-            alert('Please enter assembly material');
+            // alert('Please enter assembly material');
+            toast.success('Please enter assembly material');
+
             return;
         }
 
@@ -940,18 +995,23 @@ const PackingListManager = () => {
 
             const result = await response.json();
             if (result.status === 'success') {
-                alert('Assembly item added successfully!');
+                // alert('Assembly item added successfully!');
+                toast.success('Assembly item added successfully!');
                 setAssemblyFormData({
                     assemblyMaterial: '', col2: '', col3: '', col4: '', qty: '', col6: '', col7: '', index: ''
                 });
                 setShowAddForm(false);
                 await fetchAssemblyData();
             } else {
-                alert(`Error: ${result.message || 'Failed to add assembly item'}`);
+                // alert(`Error: ${result.message || 'Failed to add assembly item'}`);
+            toast.error(`Error: ${result.message || 'Failed to add assembly item'}`);
+
             }
         } catch (error) {
             console.error('Error adding assembly item:', error);
-            alert('Error adding assembly item: ' + error.message);
+            // alert('Error adding assembly item: ' + error.message);
+            toast.error('Error adding assembly item: ' + error.message);
+
         } finally {
             setLoading(false);
         }
@@ -1040,9 +1100,15 @@ const PackingListManager = () => {
                     border: `2px solid ${themeStyles.inputBorder}`
                 }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-                        <input type="text" placeholder="Enter Index" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
+    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
+    <input 
+        type="text" 
+        value={metalFormData.index || ''}
+        onChange={(e) => setMetalFormData({ ...metalFormData, index: e.target.value })}
+        placeholder="Enter Index" 
+        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
+    />
+</div>
                     <div>
                         <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>
                             Packing Material
@@ -1145,9 +1211,15 @@ const PackingListManager = () => {
                     border: `2px solid ${themeStyles.inputBorder}`
                 }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-                        <input type="text" placeholder="Enter Index" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
+    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
+    <input 
+        type="text" 
+        value={foundationFormData.index || ''}
+        onChange={(e) => setFoundationFormData({ ...foundationFormData, index: e.target.value })}
+        placeholder="Enter Index" 
+        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
+    />
+</div>
                     <div>
                         <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>specification</label>
                         <input type="text" value={foundationFormData.specification} onChange={(e) => setFoundationFormData({ ...foundationFormData, specification: e.target.value })} placeholder="specification" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
@@ -1213,9 +1285,15 @@ const PackingListManager = () => {
                     border: `2px solid ${themeStyles.inputBorder}`
                 }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-                        <input type="text" placeholder="Enter Index" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
+    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
+    <input 
+        type="text" 
+        value={fabricationFormData.index || ''}
+        onChange={(e) => setFabricationFormData({ ...fabricationFormData, index: e.target.value })}
+        placeholder="Enter Index" 
+        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
+    />
+</div>
                     <div>
                         <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>specification</label>
                         <input type="text" value={fabricationFormData.specification} onChange={(e) => setFabricationFormData({ ...fabricationFormData, specification: e.target.value })} placeholder="specification" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
@@ -1277,9 +1355,15 @@ const PackingListManager = () => {
                     border: `2px solid ${themeStyles.inputBorder}`
                 }}>
                     <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-                        <input type="text" placeholder="Enter Index" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
+    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
+    <input 
+        type="text" 
+        value={assemblyFormData.index || ''}
+        onChange={(e) => setAssemblyFormData({ ...assemblyFormData, index: e.target.value })}
+        placeholder="Enter Index" 
+        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
+    />
+</div>
                     <div>
                         <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>specification</label>
                         <input type="text" value={assemblyFormData.assemblyMaterial} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, assemblyMaterial: e.target.value })} placeholder="specification" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
@@ -1622,6 +1706,18 @@ const PackingListManager = () => {
                     }
                 }
             `}</style>
+            <ToastContainer
+    position="top-right"
+    autoClose={3000}
+    hideProgressBar={false}
+    newestOnTop
+    closeOnClick
+    rtl={false}
+    pauseOnFocusLoss
+    draggable
+    pauseOnHover
+    theme={theme}
+/>
         </div>
     );
 };

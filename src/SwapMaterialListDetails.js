@@ -4,6 +4,7 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ModuleRegistry } from "ag-grid-community";
+import { useParams } from "react-router-dom";
 import {
     ClientSideRowModelModule,
     ValidationModule,
@@ -28,21 +29,21 @@ ModuleRegistry.registerModules([
 ]);
 
 const MaterialSwapManager = () => {
-    const getFileIdFromUrl = () => {
-        const hash = window.location.hash;
-        const match = hash.match(/\/material-swap\/details\/(\d+)/);
-        return match ? match[1] : '5512';
-    };
+    // const getFileIdFromUrl = () => {
+    //     const hash = window.location.hash;
+    //     const match = hash.match(/\/material-swap\/details\/(\d+)/);
+    //     return match ? match[1] : '5512';
+    // };
 
-    const [fileId] = useState(getFileIdFromUrl());
+    //const [fileId] = useState(getFileIdFromUrl());
     const [theme, setTheme] = useState('light');
     const [isFullScreen, setIsFullScreen] = useState(true);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
     const [loading, setLoading] = useState(false);
-    const [fileName, setFileName] = useState('');
+    //const [fileName, setFileName] = useState('');
     const [revision, setRevision] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
-
+    const { fileId, fileName } = useParams();
     // Dropdown states
     const [materialList, setMaterialList] = useState([]);
     const [unitList, setUnitList] = useState([]);
@@ -56,6 +57,8 @@ const MaterialSwapManager = () => {
     // Grid data
     const [rowData, setRowData] = useState([]);
 
+    console.log(fileId);   // "5512"
+    console.log(fileName)
     const gridRef = useRef();
     const API_BASE_URL = "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api";
 
@@ -94,7 +97,7 @@ const MaterialSwapManager = () => {
                 }));
 
                 setRowData(mappedData);
-                setFileName(`File-${fileId}`);
+               // setFileName(`File-${fileName}`);
                 setRevision(result.revision || '1');
             }
         } catch (error) {
@@ -150,6 +153,11 @@ const MaterialSwapManager = () => {
             api.refreshCells({ rowNodes: [node], columns: [colDef.field] });
         };
     
+        // ✅ Define numeric columns
+        const rightAlignFields = ['qty', 'poQty', 'stockPoQty', 'total'];
+    
+        const isRightAligned = rightAlignFields.includes(colDef.field);
+    
         return (
             <input
                 type="text"
@@ -161,8 +169,9 @@ const MaterialSwapManager = () => {
                     border: "1px solid #ddd",
                     borderRadius: "3px",
                     padding: "4px",
-                    textAlign: "right",  // Changed from "center" to "right"
-                    fontSize: isMobile ? "10px" : "11px",
+                    textAlign: isRightAligned ? "right" : "left", // ✅ dynamic
+                    fontSize: isMobile ? "12px" : "13px",
+                    fontWeight: "500", // 🔥 optional (better visibility)
                     backgroundColor: "transparent",
                     outline: "none"
                 }}
@@ -181,13 +190,40 @@ const MaterialSwapManager = () => {
             try {
                 console.log('Saving data for:', params.data);
                 const shortName = sessionStorage.getItem('shortname');
-
+        
                 if (!shortName) {
-                    // alert('User not logged in. Please login first.');
                     toast.error('User not logged in. Please login first.');
                     return;
                 }
-
+        
+                const employee_id = sessionStorage.getItem('userId');
+        
+                // ✅ STEP 1: CHECK MATERIAL EXISTS
+                const checkFormData = new FormData();
+                checkFormData.append('matName', params.data.materialDescription);
+                checkFormData.append('fileID', fileId);
+                checkFormData.append('revision', revision);
+                checkFormData.append('employee_id', employee_id);
+                checkFormData.append('shortName', shortName);
+        
+                const checkResponse = await fetch(`${API_BASE_URL}/checkSwapMaterialApi.php`, {
+                    method: 'POST',
+                    body: checkFormData
+                });
+        
+                const checkResult = await checkResponse.json();
+        
+                // ⚠️ IMPORTANT: allow same row (avoid false duplicate)
+                if (
+                    checkResult.status === 'success' &&
+                    checkResult.exists === true &&
+                    checkResult.rowId !== params.data.rowId
+                ) {
+                    toast.error('Material already exists in this file and revision!');
+                    return;
+                }
+        
+                // ✅ STEP 2: PROCEED TO UPDATE
                 const formData = new FormData();
                 formData.append('shortName', shortName);
                 formData.append('rowid', params.data.rowId);
@@ -196,24 +232,21 @@ const MaterialSwapManager = () => {
                 formData.append('qty', params.data.qty || '0');
                 formData.append('comment', params.data.comment || '');
                 formData.append('revision', revision);
-
+        
                 if (params.data.materialDescription === 'Total') {
                     formData.append('totalId', params.data.rowId);
                     formData.append('total', params.data.total || '0');
                 }
-
-                console.log('Sending data to API:', Object.fromEntries(formData));
-
+        
                 const response = await fetch(`${API_BASE_URL}/updateSwapMaterialApi.php`, {
                     method: 'POST',
                     body: formData
                 });
-
+        
                 const result = await response.json();
-                console.log('API Response:', result);
-
+        
                 const button = document.getElementById(`save-btn-${params.data.srNo}`);
-
+        
                 if (result.status === 'success') {
                     if (button) {
                         button.style.background = '#28a745';
@@ -224,7 +257,6 @@ const MaterialSwapManager = () => {
                         }, 2000);
                     }
                     toast.success('Material updated successfully!');
-
                     await fetchMaterialSwapData();
                 } else {
                     if (button) {
@@ -236,8 +268,8 @@ const MaterialSwapManager = () => {
                         }, 2000);
                     }
                     toast.error(`Error: ${result.message || 'Update failed'}`);
-
                 }
+        
             } catch (error) {
                 console.error('Error saving data:', error);
 
@@ -330,7 +362,7 @@ const MaterialSwapManager = () => {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
                 fontSize: isMobile ? '10px' : '13px',
-                textAlign: 'right',
+              
 
             }
         },
@@ -343,7 +375,7 @@ const MaterialSwapManager = () => {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
                 fontSize: isMobile ? '10px' : '13px',
-                textAlign: 'right',
+                textAlign: 'left',
 
             }
         },
@@ -355,7 +387,7 @@ const MaterialSwapManager = () => {
             cellStyle: {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
-                textAlign: 'right',
+                textAlign: 'left',
                 fontSize: isMobile ? '10px' : '13px'
             }
         },
@@ -368,8 +400,10 @@ const MaterialSwapManager = () => {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
                 textAlign: 'right',
-                fontSize: isMobile ? '10px' : '13px'
-            }
+                fontSize: isMobile ? '10px' : '13px',
+                textAlign: 'right'
+            },
+           
         },
         {
             headerName: isMobile ? "PO Qty" : "Purchased Qty",
@@ -399,7 +433,7 @@ const MaterialSwapManager = () => {
             }
         },
         {
-            headerName: isMobile ? "Assign" : "Assign Qty (Po + Stock)",
+            headerName: isMobile ? "Assigned" : "Assigned Qty (Po + Stock)",
             field: "stockPoQty",
             width: isMobile ? 80 : 180,
             editable: false,
@@ -449,6 +483,7 @@ const MaterialSwapManager = () => {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
                 fontSize: isMobile ? '10px' : '13px',
+                textAlign: 'left'
             }
         },
         {
@@ -459,7 +494,8 @@ const MaterialSwapManager = () => {
             cellStyle: {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
-                fontSize: isMobile ? '10px' : '13px'
+                fontSize: isMobile ? '10px' : '13px',
+                textAlign: 'left'
             }
         },
         {
@@ -470,7 +506,8 @@ const MaterialSwapManager = () => {
             cellStyle: {
                 backgroundColor: '#f8f9fa',
                 padding: '2px',
-                fontSize: isMobile ? '10px' : '13px'
+                fontSize: isMobile ? '10px' : '13px',
+                textAlign: 'left'
             }
         }
     ], [rowData, isMobile]);
@@ -479,7 +516,7 @@ const MaterialSwapManager = () => {
         sortable: true,
         resizable: true,
         filter: false,
-        cellStyle: { textAlign: 'right' }  // Add this line
+        cellStyle: { textAlign: 'left' }  // Add this line
     }), []);
 
     const handleAddMaterial = async () => {
@@ -544,7 +581,7 @@ const MaterialSwapManager = () => {
             addFormData.append('qty', quantityField);
             addFormData.append('fileId', fileId);
             addFormData.append('revision', revision);
-            addFormData.append('comment', widthField ? `Width: ${widthField}` : '');
+            addFormData.append('comment', widthField);
             addFormData.append('employee_id', employee_id);
             addFormData.append('shortName', shortName);
 
@@ -836,25 +873,24 @@ const MaterialSwapManager = () => {
                                         </div>
 
                                         <div style={{
-                                            fontSize: isMobile ? '11px' : '14px',
-                                            fontWeight: '600',
-                                            whiteSpace: isMobile ? 'normal' : 'nowrap',
-                                            padding: isMobile ? '6px 10px' : '8px 16px',
-                                            backgroundColor: theme === 'dark' ? '#2d3748' : '#f7fafc',
-                                            borderRadius: '8px',
-                                        border: `2px solid ${themeStyles.inputBorder}`,
-                                        flex: isMobile ? '1 1 auto' : 'auto',
-                                        minWidth: 0
-                                    }}>
-                                        File: <span style={{ color: '#ff8c42' }}>{fileName}</span>
-                                        {revision && <span style={{
-                                            marginLeft: '8px',
-                                            color: theme === 'dark' ? '#a0aec0' : '#718096',
-                                            display: isMobile ? 'block' : 'inline'
-                                        }}>
-                                            (Rev: {revision})
-                                        </span>}
-                                    </div>
+        textAlign: 'right',
+        fontWeight: '600',
+        padding: '8px 16px',
+        borderRadius: '8px',
+        backgroundColor: theme === 'dark' ? '#2d3748' : '#f7fafc',
+        border: `2px solid ${themeStyles.inputBorder}`
+    }}>
+        File: <span style={{ color: '#ff8c42' }}>{fileName}</span>
+        {revision && (
+            <span style={{
+                marginLeft: '8px',
+                color: theme === 'dark' ? '#a0aec0' : '#718096'
+            }}>
+                (Rev: {revision})
+            </span>
+        )}
+    </div>
+
                                 </div>
                             </div>
                         </div>
@@ -893,7 +929,43 @@ const MaterialSwapManager = () => {
                                             menuPosition="fixed"
                                         />
                                     </div>
-
+                                    <div>
+                                        <label style={{
+                                            display: 'block',
+                                            marginBottom: '6px',
+                                            fontSize: isMobile ? '12px' : '13px',
+                                            fontWeight: '600',
+                                            color: theme === 'dark' ? '#a0aec0' : '#4a5568'
+                                        }}>
+                                            Quantity
+                                        </label>
+                                        <input
+                                            type="test"
+                                            value={quantityField}
+                                            onChange={(e) => setQuantityField(e.target.value)}
+                                            placeholder="Enter quantity..."
+                                            style={{
+                                                width: '100%',
+                                                padding: isMobile ? '8px 12px' : '10px 14px',
+                                                border: `2px solid ${themeStyles.inputBorder}`,
+                                                borderRadius: '8px',
+                                                backgroundColor: themeStyles.inputBg,
+                                                color: themeStyles.inputColor,
+                                                fontSize: isMobile ? '12px' : '14px',
+                                                fontWeight: '500',
+                                                transition: 'all 0.2s ease',
+                                                outline: 'none'
+                                            }}
+                                            onFocus={(e) => {
+                                                e.target.style.borderColor = themeStyles.inputFocus;
+                                                e.target.style.boxShadow = `0 0 0 3px ${themeStyles.inputFocus}20`;
+                                            }}
+                                            onBlur={(e) => {
+                                                e.target.style.borderColor = themeStyles.inputBorder;
+                                                e.target.style.boxShadow = 'none';
+                                            }}
+                                        />
+                                    </div>
                                     <div>
                                         <label style={{
                                             display: 'block',
@@ -955,43 +1027,7 @@ const MaterialSwapManager = () => {
                                         />
                                     </div>
 
-                                    <div>
-                                        <label style={{
-                                            display: 'block',
-                                            marginBottom: '6px',
-                                            fontSize: isMobile ? '12px' : '13px',
-                                            fontWeight: '600',
-                                            color: theme === 'dark' ? '#a0aec0' : '#4a5568'
-                                        }}>
-                                            Quantity
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={quantityField}
-                                            onChange={(e) => setQuantityField(e.target.value)}
-                                            placeholder="Enter quantity..."
-                                            style={{
-                                                width: '100%',
-                                                padding: isMobile ? '8px 12px' : '10px 14px',
-                                                border: `2px solid ${themeStyles.inputBorder}`,
-                                                borderRadius: '8px',
-                                                backgroundColor: themeStyles.inputBg,
-                                                color: themeStyles.inputColor,
-                                                fontSize: isMobile ? '12px' : '14px',
-                                                fontWeight: '500',
-                                                transition: 'all 0.2s ease',
-                                                outline: 'none'
-                                            }}
-                                            onFocus={(e) => {
-                                                e.target.style.borderColor = themeStyles.inputFocus;
-                                                e.target.style.boxShadow = `0 0 0 3px ${themeStyles.inputFocus}20`;
-                                            }}
-                                            onBlur={(e) => {
-                                                e.target.style.borderColor = themeStyles.inputBorder;
-                                                e.target.style.boxShadow = 'none';
-                                            }}
-                                        />
-                                    </div>
+                                   
 
                                     <button
                                         onClick={handleAddMaterial}

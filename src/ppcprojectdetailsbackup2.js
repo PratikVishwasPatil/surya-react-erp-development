@@ -16,6 +16,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 const formatDate = (dateStr) => {
   if (!dateStr) return dateStr;
   const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  // Match dd-mm-yyyy with optional time part
   return dateStr.replace(
     /(\d{2})-(\d{2})-(\d{4})/g,
     (_, dd, mm, yyyy) => {
@@ -40,18 +41,15 @@ const ProjectDetailsManager = () => {
   const [tabData, setTabData] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
   const [showForwardPopup, setShowForwardPopup] = useState(false);
-  // ── CHANGED: selectedSheet → array for multi-select
-  const [selectedSheets, setSelectedSheets] = useState([]);
-  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState("");
   const [tabs, setTabs] = useState([
     "Foundation", "Assly", "Fab", "SMetal", "Hardware", "MtlRqmt", "Packing List", "UDL",
   ]);
-  const [advanceSelectedDepartment, setAdvanceSelectedDepartment] = useState("");
   const [showAdvancePopup, setShowAdvancePopup] = useState(false);
   const [advanceSelectedSheet, setAdvanceSelectedSheet] = useState("");
   const [showDrawingsPopup, setShowDrawingsPopup] = useState(false);
-  // ── CHANGED: drawingsSelectedDepartment → array for multi-select
-  const [drawingsSelectedDepartments, setDrawingsSelectedDepartments] = useState([]);
+  const [drawingsSelectedDepartment, setDrawingsSelectedDepartment] = useState("");
   const [sheetNames, setSheetNames] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
@@ -222,28 +220,23 @@ const ProjectDetailsManager = () => {
   const handleSendForward = async () => {
     const employeeId = sessionStorage.getItem('userId');
     if (!employeeId) { toast.error("Employee ID not found. Please login again."); return; }
-    if (selectedSheets.length === 0) { toast.warning("Please select at least one sheet name"); return; }
-    if (selectedDepartments.length === 0) { toast.warning("Please select at least one department"); return; }
+    if (!selectedSheet) { toast.warning("Please select a sheet name"); return; }
+    if (!selectedDepartment) { toast.warning("Please select a department"); return; }
     try {
       const response = await fetch(
         "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/PPCForwardSheetsApi.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileId,
-            department: selectedDepartments,
-            sheetName: selectedSheets,
-            employee_id: employeeId,
-          }),
+          body: JSON.stringify({ fileId, department: [selectedDepartment], sheetName: [selectedSheet], employee_id: employeeId }),
         }
       );
       const result = await response.json();
       if (result.status === "success") {
         toast.success(result.message || "Sheets forwarded successfully!");
         setShowForwardPopup(false);
-        setSelectedSheets([]);
-        setSelectedDepartments([]);
+        setSelectedSheet("");
+        setSelectedDepartment("");
       } else {
         toast.error(result.message || "Failed to forward sheets");
       }
@@ -256,14 +249,14 @@ const ProjectDetailsManager = () => {
     const employeeId = sessionStorage.getItem('userId');
     if (!employeeId) { toast.error("Employee ID not found. Please login again."); return; }
     if (!advanceSelectedSheet) { toast.warning("Please select a sheet name"); return; }
-    if (!advanceSelectedDepartment) { toast.warning("Please select a department"); return; }
+    if (!selectedDepartment) { toast.warning("Please select a department"); return; }
     try {
       const response = await fetch(
         "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/PPCForwardAdvanceApi.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fileId, department: [advanceSelectedDepartment], sheetName: [advanceSelectedSheet], employee_id: employeeId }),
+          body: JSON.stringify({ fileId, department: [selectedDepartment], sheetName: [advanceSelectedSheet], employee_id: employeeId }),
         }
       );
       const result = await response.json();
@@ -271,7 +264,7 @@ const ProjectDetailsManager = () => {
         toast.success(result.message || "Advance copy forwarded successfully!");
         setShowAdvancePopup(false);
         setAdvanceSelectedSheet("");
-        setAdvanceSelectedDepartment("");
+        setSelectedDepartment("");
       } else {
         toast.error(result.message || "Failed to forward advance copy");
       }
@@ -280,12 +273,11 @@ const ProjectDetailsManager = () => {
     }
   };
 
-  // ── CHANGED: now sends drawingsSelectedDepartments array (multi), existing drawing ids
   const handleSendDrawings = async () => {
     const employeeId = sessionStorage.getItem('userId');
     if (!employeeId) { toast.error("Employee ID not found. Please login again."); return; }
     if (selectedDrawings.length === 0) { toast.warning("Please select at least one drawing"); return; }
-    if (drawingsSelectedDepartments.length === 0) { toast.warning("Please select at least one department"); return; }
+    if (!drawingsSelectedDepartment) { toast.warning("Please select a department"); return; }
     try {
       const drawingIds = selectedDrawings.map((index) => drawingsData[index]?.doc_id).filter(Boolean);
       const response = await fetch(
@@ -293,19 +285,14 @@ const ProjectDetailsManager = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileId,
-            department: drawingsSelectedDepartments,   // ← array of selected departments
-            drawingIds,
-            employee_id: employeeId,
-          }),
+          body: JSON.stringify({ fileId, department: [drawingsSelectedDepartment], drawingIds, employee_id: employeeId }),
         }
       );
       const result = await response.json();
       if (result.status === "success") {
         toast.success(`Drawings forwarded successfully! ${result.data?.totalRecordsInserted || ''} records inserted.`);
         setShowDrawingsPopup(false);
-        setDrawingsSelectedDepartments([]);
+        setDrawingsSelectedDepartment("");
         setSelectedDrawings([]);
       } else {
         toast.error(result.message || "Failed to forward drawings");
@@ -328,81 +315,6 @@ const ProjectDetailsManager = () => {
     </div>
   );
 
-  // ── NEW: Multi-checkbox select for sheets ─────────────────────────────────
-  const MultiCheckboxSheet = ({ label, loading: isLoading, options, selected, onToggle }) => (
-    <div style={{ marginBottom: "20px" }}>
-      <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666", fontWeight: "500" }}>{label}</label>
-      {isLoading ? (
-        <div style={{ padding: "10px 12px", fontSize: "14px", color: "#999", border: "1px solid #ddd", borderRadius: "6px", background: "#f5f5f5" }}>
-          Loading sheets...
-        </div>
-      ) : (
-        <div style={{ border: "1px solid #ddd", borderRadius: "6px", maxHeight: "180px", overflowY: "auto", background: "#fafafa" }}>
-          {options.length === 0 ? (
-            <div style={{ padding: "12px", color: "#aaa", fontSize: "13px" }}>No sheets available</div>
-          ) : (
-            options.map((opt) => {
-              const val = typeof opt === "string" ? opt : opt.id;
-              const lbl = typeof opt === "string" ? opt : opt.name;
-              const checked = selected.includes(val);
-              return (
-                <label key={val}
-                  style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #eee", background: checked ? "#eef2ff" : "transparent", transition: "background 0.15s" }}>
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(val)}
-                    style={{ width: "16px", height: "16px", accentColor: "#667eea", cursor: "pointer", flexShrink: 0 }} />
-                  <span style={{ fontSize: "14px", color: "#333", fontWeight: checked ? "600" : "400" }}>{lbl}</span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      )}
-      {selected.length > 0 && (
-        <div style={{ marginTop: "6px", fontSize: "12px", color: "#667eea", fontWeight: "600" }}>
-          {selected.length} sheet{selected.length > 1 ? "s" : ""} selected
-        </div>
-      )}
-    </div>
-  );
-
-  // ── NEW: Multi-checkbox select for departments ────────────────────────────
-  const MultiCheckboxDept = ({ label, loading: isLoading, options, selected, onToggle }) => (
-    <div style={{ marginBottom: "20px" }}>
-      <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666", fontWeight: "500" }}>{label}</label>
-      {isLoading ? (
-        <div style={{ padding: "10px 12px", fontSize: "14px", color: "#999", border: "1px solid #ddd", borderRadius: "6px", background: "#f5f5f5" }}>
-          Loading departments...
-        </div>
-      ) : (
-        <div style={{ border: "1px solid #ddd", borderRadius: "6px", maxHeight: "180px", overflowY: "auto", background: "#fafafa" }}>
-          {options.length === 0 ? (
-            <div style={{ padding: "12px", color: "#aaa", fontSize: "13px" }}>No departments available</div>
-          ) : (
-            options.map((opt) => {
-              const val = opt.id;
-              const lbl = opt.name;
-              const checked = selected.includes(val);
-              return (
-                <label key={val}
-                  style={{ display: "flex", alignItems: "center", gap: "10px", padding: "9px 12px", cursor: "pointer", borderBottom: "1px solid #eee", background: checked ? "#eef2ff" : "transparent", transition: "background 0.15s" }}>
-                  <input type="checkbox" checked={checked} onChange={() => onToggle(val)}
-                    style={{ width: "16px", height: "16px", accentColor: "#667eea", cursor: "pointer", flexShrink: 0 }} />
-                  <span style={{ fontSize: "14px", color: "#333", fontWeight: checked ? "600" : "400" }}>{lbl}</span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      )}
-      {selected.length > 0 && (
-        <div style={{ marginTop: "6px", fontSize: "12px", color: "#667eea", fontWeight: "600" }}>
-          {selected.length} department{selected.length > 1 ? "s" : ""} selected
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Keep original single-select for department (used in Forward Sheets & Advance) ──
   const PopupSelect = ({ label, value, onChange, disabled, placeholder, options, optKey, optLabel }) => (
     <div style={{ marginBottom: "20px" }}>
       <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "#666", fontWeight: "500" }}>{label}</label>
@@ -425,15 +337,18 @@ const ProjectDetailsManager = () => {
       </button>
     </div>
   );
-
   const formatShortDate = (dateString) => {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, "0");
-    const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
+  const date = new Date(dateString);
+
+  const day = String(date.getDate()).padStart(2, "0");
+
+  const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const month = months[date.getMonth()];
+
+  const year = date.getFullYear();
+
+  return `${day}-${month}-${year}`;
+};
 
   // ── Status box colors ─────────────────────────────────────────────────────
   const statusBoxes = [
@@ -443,23 +358,20 @@ const ProjectDetailsManager = () => {
     { key: "fab",    bg: "linear-gradient(135deg,#e8f5e9 0%,#c8e6c9 100%)", color: "#1b5e20", border: "rgba(76,175,80,0.2)" },
   ];
 
-  // ── Toggle helpers ────────────────────────────────────────────────────────
-  const toggleSheet = (val) => {
-    setSelectedSheets((prev) =>
-      prev.includes(val) ? prev.filter((s) => s !== val) : [...prev, val]
-    );
+  // ── Excel-style table row background ─────────────────────────────────────
+  // highlight === "yellow" → #ffff00 (exact yellow as in screenshot)
+  // highlight === "#bddff7" → that blue for packing list headers
+  // highlight === false → white / alternating
+  const getRowBg = (highlight, idx) => {
+    if (highlight === "yellow") return "#ffff00";
+    if (highlight === "#bddff7") return "#bddff7";
+    return idx % 2 === 0 ? "#ffffff" : "#f9f9f9";
   };
 
-  const toggleForwardDept = (val) => {
-    setSelectedDepartments((prev) =>
-      prev.includes(val) ? prev.filter((d) => d !== val) : [...prev, val]
-    );
-  };
-
-  const toggleDrawingDept = (val) => {
-    setDrawingsSelectedDepartments((prev) =>
-      prev.includes(val) ? prev.filter((d) => d !== val) : [...prev, val]
-    );
+  const getRowHoverBg = (highlight) => {
+    if (highlight === "yellow") return "#ffe600";
+    if (highlight === "#bddff7") return "#a8d4f0";
+    return "#eef2ff";
   };
 
   return (
@@ -468,6 +380,8 @@ const ProjectDetailsManager = () => {
       <style>{`
         @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
         .mobile-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+        /* ── Excel table styles ── */
         .excel-table {
           width: 100%;
           border-collapse: collapse;
@@ -495,26 +409,127 @@ const ProjectDetailsManager = () => {
           vertical-align: middle;
           line-height: 1.3;
         }
-        .excel-row-yellow td { background-color: #ffff00 !important; color: #000000; font-weight: 700; }
-        .excel-row-blue td { background-color: #bddff7 !important; color: #000000; font-weight: 700; }
-        .excel-row-normal:nth-child(even) td { background-color: #ffffff; }
-        .excel-row-normal:nth-child(odd) td { background-color: #f2f2f2; }
-        .excel-row-normal:hover td { background-color: #cce5ff !important; cursor: default; }
-        .excel-row-yellow:hover td { background-color: #ffe600 !important; }
-        .excel-row-blue:hover td { background-color: #a8d4f0 !important; }
-        .excel-col-id { color: #1f4e79; font-weight: 700; font-size: 11px; text-align: center !important; width: 40px; min-width: 40px; }
-        .excel-col-num { text-align: right !important; font-variant-numeric: tabular-nums; color: #333; }
-        .excel-col-desc { text-align: left !important; min-width: 200px; font-weight: 600; color: #1a1a1a; }
-        .tab-btn { padding: 10px 22px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; border-top-left-radius: 8px; border-top-right-radius: 8px; transition: all 0.2s ease; white-space: nowrap; flex-shrink: 0; letter-spacing: 0.2px; }
-        .tab-btn.active { background: #ffffff; color: #1f4e79; border-bottom: 3px solid #1f4e79; box-shadow: 0 -2px 8px rgba(0,0,0,0.08); }
-        .tab-btn.inactive { background: rgba(255,255,255,0.55); color: #555; border-bottom: 3px solid transparent; }
-        .tab-btn.inactive:hover { background: rgba(255,255,255,0.8); color: #1f4e79; }
-        .excel-header-bar { background: #f0f0f0; border-bottom: 2px solid #c0c0c0; padding: 7px 14px; font-size: 13px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 10px; font-family: 'Calibri', Arial, sans-serif; flex-shrink: 0; overflow-x: auto; white-space: nowrap; }
-        .excel-header-bar .filename { color: #1f4e79; font-weight: 700; font-size: 14px; }
-        .excel-header-bar .sep { color: #aaa; font-weight: 400; }
-        .excel-header-bar .uploader { color: #555; }
-        .excel-container { background: #fff; border-radius: 0 10px 10px 10px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,0.13); margin-bottom: 28px; border: 1.5px solid #c7c7c7; display: flex; flex-direction: column; }
-        .excel-scroll-area { overflow-x: auto; overflow-y: auto; flex: 1; max-height: 480px; }
+        .excel-row-yellow td {
+          background-color: #ffff00 !important;
+          color: #000000;
+          font-weight: 700;
+        }
+        .excel-row-blue td {
+          background-color: #bddff7 !important;
+          color: #000000;
+          font-weight: 700;
+        }
+        .excel-row-normal:nth-child(even) td {
+          background-color: #ffffff;
+        }
+        .excel-row-normal:nth-child(odd) td {
+          background-color: #f2f2f2;
+        }
+        .excel-row-normal:hover td {
+          background-color: #cce5ff !important;
+          cursor: default;
+        }
+        .excel-row-yellow:hover td {
+          background-color: #ffe600 !important;
+        }
+        .excel-row-blue:hover td {
+          background-color: #a8d4f0 !important;
+        }
+        /* first col (s1,s4 etc) styling */
+        .excel-col-id {
+          color: #1f4e79;
+          font-weight: 700;
+          font-size: 11px;
+          text-align: center !important;
+          width: 40px;
+          min-width: 40px;
+        }
+        /* numeric cells right-aligned */
+        .excel-col-num {
+          text-align: right !important;
+          font-variant-numeric: tabular-nums;
+          color: #333;
+        }
+        /* description col */
+        .excel-col-desc {
+          text-align: left !important;
+          min-width: 200px;
+          font-weight: 600;
+          color: #1a1a1a;
+        }
+        /* tab bar */
+        .tab-btn {
+          padding: 10px 22px;
+          border: none;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          border-top-left-radius: 8px;
+          border-top-right-radius: 8px;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+          flex-shrink: 0;
+          letter-spacing: 0.2px;
+        }
+        .tab-btn.active {
+          background: #ffffff;
+          color: #1f4e79;
+          border-bottom: 3px solid #1f4e79;
+          box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+        }
+        .tab-btn.inactive {
+          background: rgba(255,255,255,0.55);
+          color: #555;
+          border-bottom: 3px solid transparent;
+        }
+        .tab-btn.inactive:hover {
+          background: rgba(255,255,255,0.8);
+          color: #1f4e79;
+        }
+        /* excel header bar */
+        .excel-header-bar {
+          background: #f0f0f0;
+          border-bottom: 2px solid #c0c0c0;
+          padding: 7px 14px;
+          font-size: 13px;
+          font-weight: 600;
+          color: #333;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-family: 'Calibri', Arial, sans-serif;
+          flex-shrink: 0;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+        .excel-header-bar .filename {
+          color: #1f4e79;
+          font-weight: 700;
+          font-size: 14px;
+        }
+        .excel-header-bar .sep {
+          color: #aaa;
+          font-weight: 400;
+        }
+        .excel-header-bar .uploader {
+          color: #555;
+        }
+        .excel-container {
+          background: #fff;
+          border-radius: 0 10px 10px 10px;
+          overflow: hidden;
+          box-shadow: 0 6px 24px rgba(0,0,0,0.13);
+          margin-bottom: 28px;
+          border: 1.5px solid #c7c7c7;
+          display: flex;
+          flex-direction: column;
+        }
+        .excel-scroll-area {
+          overflow-x: auto;
+          overflow-y: auto;
+          flex: 1;
+          max-height: 480px;
+        }
       `}</style>
 
       {/* ── Header tabs ── */}
@@ -538,62 +553,35 @@ const ProjectDetailsManager = () => {
         </button>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          POPUPS
-      ══════════════════════════════════════════════════════════════════════ */}
-
-      {/* Forward Sheets Popup — multi-checkbox sheets, single dept */}
+      {/* ── Popups ── */}
       {showForwardPopup && (
-        <Popup title="Forward Sheets" onClose={() => { setShowForwardPopup(false); setSelectedSheets([]); setSelectedDepartments([]); }}>
-          <MultiCheckboxSheet
-            label="Select Sheet Name(s)"
-            loading={loadingSheets}
-            options={sheetNames.map((s) => (typeof s === "string" ? { id: s, name: s } : s))}
-            selected={selectedSheets}
-            onToggle={toggleSheet}
-          />
-          <MultiCheckboxDept
-            label="Select Department(s)"
-            loading={loadingDepts}
-            options={departments}
-            selected={selectedDepartments}
-            onToggle={toggleForwardDept}
-          />
-          <PopupActions
-            onClose={() => { setShowForwardPopup(false); setSelectedSheets([]); setSelectedDepartments([]); }}
-            onSend={handleSendForward}
-            disabled={selectedSheets.length === 0 || selectedDepartments.length === 0}
-          />
+        <Popup title="Forward Sheets" onClose={() => { setShowForwardPopup(false); setSelectedSheet(""); setSelectedDepartment(""); }}>
+          <PopupSelect label="Select Sheet Name" value={selectedSheet} onChange={(e) => setSelectedSheet(e.target.value)}
+            disabled={loadingSheets} placeholder="Select a sheet..." options={sheetNames.map((s) => ({ id: s, name: s }))} optKey="id" optLabel="name" />
+          <PopupSelect label="Select Department" value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}
+            disabled={loadingDepts} placeholder="Select a department..." options={departments} optKey="id" optLabel="name" />
+          <PopupActions onClose={() => { setShowForwardPopup(false); setSelectedSheet(""); setSelectedDepartment(""); }}
+            onSend={handleSendForward} disabled={!selectedSheet || !selectedDepartment} />
         </Popup>
       )}
 
-      {/* Advance Copy Popup — single sheet, single dept (unchanged) */}
       {showAdvancePopup && (
-        <Popup title="Forward Advance Copy" onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setAdvanceSelectedDepartment(""); }}>
+        <Popup title="Forward Advance Copy" onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setSelectedDepartment(""); }}>
           <PopupSelect label="Select Sheet Name" value={advanceSelectedSheet} onChange={(e) => setAdvanceSelectedSheet(e.target.value)}
             disabled={false} placeholder="Select a sheet..." options={tabs.map((t) => ({ id: t, name: t }))} optKey="id" optLabel="name" />
-          <PopupSelect label="Select Department" value={advanceSelectedDepartment} onChange={(e) => setAdvanceSelectedDepartment(e.target.value)}
+          <PopupSelect label="Select Department" value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}
             disabled={loadingDepts} placeholder="Select a department..." options={departments} optKey="id" optLabel="name" />
-          <PopupActions onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setAdvanceSelectedDepartment(""); }}
-            onSend={handleSendAdvance} disabled={!advanceSelectedSheet || !advanceSelectedDepartment} />
+          <PopupActions onClose={() => { setShowAdvancePopup(false); setAdvanceSelectedSheet(""); setSelectedDepartment(""); }}
+            onSend={handleSendAdvance} disabled={!advanceSelectedSheet || !selectedDepartment} />
         </Popup>
       )}
 
-      {/* Forward Drawings Popup — multi-checkbox departments */}
       {showDrawingsPopup && (
-        <Popup title="Forward Drawings" onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartments([]); }}>
-          <MultiCheckboxDept
-            label="Select Department(s)"
-            loading={loadingDepts}
-            options={departments}
-            selected={drawingsSelectedDepartments}
-            onToggle={toggleDrawingDept}
-          />
-          <PopupActions
-            onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartments([]); }}
-            onSend={handleSendDrawings}
-            disabled={drawingsSelectedDepartments.length === 0}
-          />
+        <Popup title="Forward Drawings" onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartment(""); }}>
+          <PopupSelect label="Select Department" value={drawingsSelectedDepartment} onChange={(e) => setDrawingsSelectedDepartment(e.target.value)}
+            disabled={loadingDepts} placeholder="Select a department..." options={departments} optKey="id" optLabel="name" />
+          <PopupActions onClose={() => { setShowDrawingsPopup(false); setDrawingsSelectedDepartment(""); }}
+            onSend={handleSendDrawings} disabled={!drawingsSelectedDepartment} />
         </Popup>
       )}
 
@@ -603,6 +591,7 @@ const ProjectDetailsManager = () => {
       {mainTab === "project-details" ? (
         <div style={{ padding: isMobile ? "16px" : "28px" }}>
 
+          {/* Loading */}
           {loading && (
             <div style={{ background: "rgba(255,255,255,0.95)", padding: isMobile ? "24px" : "32px", borderRadius: "16px", textAlign: "center", marginBottom: "24px", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
               <div style={{ display: "inline-block", width: "40px", height: "40px", border: "4px solid #f3f3f3", borderTop: "4px solid #667eea", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: "16px" }} />
@@ -610,6 +599,7 @@ const ProjectDetailsManager = () => {
             </div>
           )}
 
+          {/* Error */}
           {error && (
             <div style={{ background: "linear-gradient(135deg,#ffebee 0%,#ffcdd2 100%)", padding: isMobile ? "16px 20px" : "20px 24px", borderRadius: "12px", color: "#c62828", fontSize: isMobile ? "14px" : "15px", fontWeight: "600", marginBottom: "24px", border: "2px solid rgba(198,40,40,0.3)", display: "flex", alignItems: "center", gap: "12px" }}>
               <Clock size={20} />{error}
@@ -627,8 +617,10 @@ const ProjectDetailsManager = () => {
             </div>
           )}
 
+          {/* ── Tabs ── */}
           {!loading && (
             <>
+              {/* Tab buttons */}
               <div className={isMobile ? "mobile-scroll" : ""}
                 style={{ display: "flex", gap: "4px", overflowX: "auto", paddingBottom: "0" }}>
                 {tabs.map((tab) => (
@@ -639,7 +631,10 @@ const ProjectDetailsManager = () => {
                 ))}
               </div>
 
+              {/* ── Excel-style table container ── */}
               <div className="excel-container">
+
+                {/* Excel header bar */}
                 <div className="excel-header-bar">
                   {tabData ? (
                     <>
@@ -656,6 +651,7 @@ const ProjectDetailsManager = () => {
                   )}
                 </div>
 
+                {/* Table area */}
                 {tabLoading ? (
                   <div style={{ padding: "60px", textAlign: "center" }}>
                     <div style={{ display: "inline-block", width: "36px", height: "36px", border: "4px solid #f3f3f3", borderTop: "4px solid #1f4e79", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
@@ -664,12 +660,15 @@ const ProjectDetailsManager = () => {
                 ) : tabData && tabData.rows && tabData.rows.length > 0 ? (
                   <div className="excel-scroll-area">
                     <table className="excel-table">
+                      {/* Column header row built from first yellow row or columns array */}
                       <thead>
                         <tr>
                           {activeTab === "Packing List" && (
                             <th style={{ width: "40px" }}>✓</th>
                           )}
+                          {/* Use columns from API if meaningful, else use first highlight row */}
                           {(() => {
+                            // Find first yellow row with data as header reference
                             const firstYellowRow = tabData.rows.find(r => r.highlight === "yellow" && r.data && r.data.some(d => d !== ""));
                             const headerData = firstYellowRow ? firstYellowRow.data : (tabData.columns || []);
                             return headerData.map((col, i) => (
@@ -700,11 +699,16 @@ const ProjectDetailsManager = () => {
                               {row.data && row.data.map((cell, cellIdx) => {
                                 const isIdCol   = cellIdx === 0;
                                 const isDescCol = cellIdx === 1;
+                                // numeric if not id/desc and value looks like number
                                 const isNum = cellIdx > 1 && cell !== "" && !isNaN(cell);
                                 return (
                                   <td key={cellIdx}
                                     className={isIdCol ? "excel-col-id" : isDescCol ? "excel-col-desc" : isNum ? "excel-col-num" : ""}
-                                    style={{ fontWeight: isYellow ? "700" : isIdCol ? "700" : isDescCol ? "600" : "400", color: isYellow ? "#000" : isIdCol ? "#1f4e79" : isDescCol ? "#111" : "#333", fontSize: isIdCol ? "11px" : "13px" }}>
+                                    style={{
+                                      fontWeight: isYellow ? "700" : isIdCol ? "700" : isDescCol ? "600" : "400",
+                                      color: isYellow ? "#000" : isIdCol ? "#1f4e79" : isDescCol ? "#111" : "#333",
+                                      fontSize: isIdCol ? "11px" : "13px",
+                                    }}>
                                     {cell !== null && cell !== undefined ? cell : ""}
                                   </td>
                                 );
@@ -830,9 +834,17 @@ const ProjectDetailsManager = () => {
                               <span style={{ fontSize: isMobile ? "12px" : "13px", fontWeight: "700", color: getModuleColor(item.sheet_name), background: `${getModuleColor(item.sheet_name)}15`, padding: isMobile ? "5px 10px" : "6px 12px", borderRadius: "6px", border: `1.5px solid ${getModuleColor(item.sheet_name)}40` }}>
                                 {item.sheet_name}
                               </span>
-                              <span style={{ fontSize: isMobile ? "10px" : "11px", color: "#95a5a6", fontWeight: "600" }}>
-                                {formatShortDate(item.timestamp)}
-                              </span>
+                              {/* ✅ Date formatted */}
+                              {/* <span style={{ fontSize: isMobile ? "10px" : "11px", color: "#95a5a6", fontWeight: "600" }}>{formatDate(item.timestamp)}</span> */}
+                              <span
+  style={{
+    fontSize: isMobile ? "10px" : "11px",
+    color: "#95a5a6",
+    fontWeight: "600",
+  }}
+>
+  {formatShortDate(item.timestamp)}
+</span>
                             </div>
                             <div style={{ fontSize: isMobile ? "12px" : "13px", color: "#34495e", fontWeight: "600", marginBottom: "6px" }}>
                               <span style={{ color: "#7f8c8d" }}>From:</span> {item.sender}
@@ -851,6 +863,7 @@ const ProjectDetailsManager = () => {
           )}
         </div>
       ) : (
+        // Advance Copy placeholder
         <div style={{ padding: isMobile ? "16px" : "32px", textAlign: "center" }}>
           <div style={{ background: "white", borderRadius: "16px", padding: isMobile ? "40px 24px" : "60px 40px", boxShadow: "0 8px 32px rgba(0,0,0,0.12)", maxWidth: "600px", margin: "0 auto" }}>
             <div style={{ width: isMobile ? "60px" : "80px", height: isMobile ? "60px" : "80px", background: "linear-gradient(135deg,#f093fb 0%,#f5576c 100%)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 8px 24px rgba(245,87,108,0.4)" }}>

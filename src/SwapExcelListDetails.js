@@ -33,36 +33,40 @@ const PackingListManager = () => {
         return match ? match[1] : '5507';
     };
 
+    const getFileNameFromUrl = () => {
+    const hash = window.location.hash; // e.g. "#/excel-list/details/5530/S-26-TEJ"
+    const match = hash.match(/#\/excel-list\/details\/\d+\/(.+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+};
+    const [fileName, setFileName] = useState(getFileNameFromUrl());
+
     const [fileId] = useState(getFileIdFromUrl());
-    const [activeTab, setActiveTab] = useState('Metal');
+    // FIX 2: Changed default from 'Metal' to 'SMetal' to match tabs array
+    const [activeTab, setActiveTab] = useState('SMetal');
     const [theme, setTheme] = useState('light');
     const [isFullScreen, setIsFullScreen] = useState(true);
     const [loading, setLoading] = useState(false);
-    const [fileName, setFileName] = useState('');
+    // const [fileName, setFileName] = useState('');
     const [revision, setRevision] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
 
-    // Form data for Metal tab
     const [metalFormData, setMetalFormData] = useState({
-        packingMaterial: '', cw: '', ch: '', hl: '', qty: '', w: '', h: '', qty1: '', wt: ''
+        packingMaterial: '', cw: '', ch: '', hl: '', qty: '', w: '', h: '', qty1: '', wt: '',
+        sq_m: '', sqft: '', colpc: '', col11: '', matlReqmt: '', col13: '', col14: '', index: ''
     });
 
-    // Form data for Foundation tab
     const [foundationFormData, setFoundationFormData] = useState({
-        specification: '', moc: '', size: '', l: '', qty: '', mtrs: '', sqft: '', wtMtr: '', wt: ''
+        specification: '', moc: '', size: '', l: '', qty: '', mtrs: '', sqft: '', wtMtr: '', wt: '', index: ''
     });
 
-    // Form data for Fabrication tab
     const [fabricationFormData, setFabricationFormData] = useState({
-        specification: '', col2: '', inMm: '', qty: '', mtrs: '', sqft: '', color: '', weight: ''
+        specification: '', col2: '', inMm: '', qty: '', mtrs: '', sqft: '', color: '', weight: '', index: ''
     });
 
-    // Form data for Assembly tab
     const [assemblyFormData, setAssemblyFormData] = useState({
-        assemblyMaterial: '', col2: '', col3: '', col4: '', qty: '', col6: '', col7: ''
+        assemblyMaterial: '', col2: '', col3: '', col4: '', qty: '', col6: '', col7: '', index: ''
     });
 
-    // Grid data
     const [metalRowData, setMetalRowData] = useState([]);
     const [foundationRowData, setFoundationRowData] = useState([]);
     const [fabricationRowData, setFabricationRowData] = useState([]);
@@ -71,17 +75,16 @@ const PackingListManager = () => {
     const gridRef = useRef();
     const API_BASE_URL = "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api";
 
+    // FIX 2: tabs array kept as-is, now activeTab default matches 'SMetal'
     const tabs = ['SMetal', 'Foundation', 'Fabrication', 'Assembly'];
 
-    // Fetch Metal data
     const fetchMetalData = async () => {
         setLoading(true);
         try {
             const response = await fetch(`${API_BASE_URL}/smetalswapApi.php?file=${fileId}`);
             const result = await response.json();
-
             if (result.status === "success" && Array.isArray(result.data)) {
-                const mappedData = result.data.map((item, index) => ({
+                const mappedData = result.data.map((item) => ({
                     index: item.id,
                     dbId: item.DT_RowId,
                     packingMaterial: item.pm || '',
@@ -100,10 +103,12 @@ const PackingListManager = () => {
                     col13: item.col13 || '',
                     col14: item.col14 || '',
                     wt: item.wt || '0',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time || '-'
                 }));
                 setMetalRowData(mappedData);
-                setFileName(result.fileName || `File-${fileId}`);
+                // setFileName(result.fileName || `File-${fileId}`);
+                if (result.fileName) setFileName(result.fileName);
+// Don't overwrite the URL-derived name with a fallback
                 setRevision(result.revision || '0');
             }
         } catch (error) {
@@ -113,15 +118,13 @@ const PackingListManager = () => {
         }
     };
 
-    // Fetch Foundation data
     const fetchFoundationData = async () => {
         setLoading(true);
         try {
             const response = await fetch(`${API_BASE_URL}/foundswapApi.php?file=${fileId}`);
             const result = await response.json();
-
             if (result.status === "success" && Array.isArray(result.data)) {
-                const mappedData = result.data.map((item, index) => ({
+                const mappedData = result.data.map((item) => ({
                     index: item.id,
                     dbId: item.DT_RowId,
                     specification: item.spe || '',
@@ -133,10 +136,12 @@ const PackingListManager = () => {
                     sqft: item.sqft || '',
                     wtMtr: item.wtMtr || '',
                     wt: item.wt || '0',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time || '-'
                 }));
                 setFoundationRowData(mappedData);
-                setFileName(result.fileName || `File-${fileId}`);
+                // setFileName(result.fileName || `File-${fileId}`);
+                if (result.fileName) setFileName(result.fileName);
+// Don't overwrite the URL-derived name with a fallback
                 setRevision(result.revision || '0');
             }
         } catch (error) {
@@ -146,16 +151,14 @@ const PackingListManager = () => {
         }
     };
 
-    // Fetch Fabrication data
     const fetchFabricationData = async () => {
         setLoading(true);
         try {
             const response = await fetch(`${API_BASE_URL}/fabswapApi.php?file=${fileId}`);
             const result = await response.json();
-
             if (result.status === "success" && Array.isArray(result.data)) {
-                const mappedData = result.data.map((item, index) => ({
-                     index: item.id,
+                const mappedData = result.data.map((item) => ({
+                    index: item.id,
                     dbId: item.DT_RowId,
                     specification: item.spe || '',
                     col2: item.col2 || '',
@@ -165,10 +168,12 @@ const PackingListManager = () => {
                     sqft: item.sqft || '',
                     color: item.color || '',
                     weight: item.weight || '0',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time || '-'
                 }));
                 setFabricationRowData(mappedData);
-                setFileName(result.fileName || `File-${fileId}`);
+                // setFileName(result.fileName || `File-${fileId}`);
+                if (result.fileName) setFileName(result.fileName);
+// Don't overwrite the URL-derived name with a fallback
                 setRevision(result.revision || '0');
             }
         } catch (error) {
@@ -178,15 +183,13 @@ const PackingListManager = () => {
         }
     };
 
-    // Fetch Assembly data
     const fetchAssemblyData = async () => {
         setLoading(true);
         try {
             const response = await fetch(`${API_BASE_URL}/assemswapApi.php?file=${fileId}`);
             const result = await response.json();
-
             if (result.status === "success" && Array.isArray(result.data)) {
-                const mappedData = result.data.map((item, index) => ({
+                const mappedData = result.data.map((item) => ({
                     index: item.id,
                     dbId: item.DT_RowId,
                     assemblyMaterial: item.spe || '',
@@ -196,10 +199,12 @@ const PackingListManager = () => {
                     qty: item.qty || '0',
                     col6: item.col6 || '',
                     col7: item.col7 || '',
-                    updatedBy: item.updatedBy || '-'
+                    updatedBy: item.time || '-'
                 }));
                 setAssemblyRowData(mappedData);
-                setFileName(result.fileName || `File-${fileId}`);
+                // setFileName(result.fileName || `File-${fileId}`);
+                if (result.fileName) setFileName(result.fileName);
+// Don't overwrite the URL-derived name with a fallback
                 setRevision(result.revision || '0');
             }
         } catch (error) {
@@ -209,8 +214,9 @@ const PackingListManager = () => {
         }
     };
 
+    // FIX 2: All switch cases now use 'SMetal' instead of 'Metal'
     useEffect(() => {
-        if (activeTab === 'Metal') {
+        if (activeTab === 'SMetal') {
             fetchMetalData();
         } else if (activeTab === 'Foundation') {
             fetchFoundationData();
@@ -221,21 +227,20 @@ const PackingListManager = () => {
         }
     }, [fileId, activeTab]);
 
-    // Editable cell renderer
     const EditableCell = (props) => {
         const { value, node, colDef } = props;
         const [inputValue, setInputValue] = React.useState(value || "");
-    
+
         React.useEffect(() => {
             setInputValue(value || "");
         }, [value]);
-    
+
         const handleChange = (e) => {
             const newValue = e.target.value;
             setInputValue(newValue);
             node.setDataValue(colDef.field, newValue);
         };
-    
+
         return (
             <input
                 type="text"
@@ -249,19 +254,17 @@ const PackingListManager = () => {
                     padding: "8px",
                     fontSize: "13px",
                     backgroundColor: "transparent",
-                    textAlign: "right"  // Added right alignment
+                    textAlign: "right",
+                    color: "inherit"
                 }}
             />
         );
     };
 
-   const MetalActionCell = (params) => {
+    const MetalActionCell = (params) => {
         const handleSave = async () => {
             try {
                 const shortname = sessionStorage.getItem('shortname') || 'admin';
-
-                console.log('params.data:', params.data);
-
                 const payload = {
                     selectedRow: [{
                         index: params.data.index || '',
@@ -284,23 +287,13 @@ const PackingListManager = () => {
                         shortname: shortname
                     }]
                 };
-
-                // Debug: Log payload
-                console.log('Payload:', JSON.stringify(payload, null, 2));
-
                 const response = await fetch(`${API_BASE_URL}/smetalUpdateApi.php`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
                 const result = await response.json();
-                console.log('Response:', result);
-
                 const button = document.getElementById(`save-btn-${params.data.index}`);
-
                 if (result.status === 'success') {
                     if (button) {
                         button.style.background = '#28a745';
@@ -321,19 +314,13 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert(`Error: ${result.message}`);
                     toast.error(`Error: ${result.message}`);
-
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                // alert('Error updating record');
-                toast.error(`Error updating record`);
-
-
+                toast.error('Error updating record');
             }
         };
-
         return (
             <div style={{ display: 'flex', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
                 <button
@@ -341,24 +328,15 @@ const PackingListManager = () => {
                     onClick={handleSave}
                     style={{
                         background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 12px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)',
-                        transition: 'all 0.3s ease'
+                        color: 'white', border: 'none', borderRadius: '6px',
+                        padding: '4px 12px', fontSize: '10px', cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)', transition: 'all 0.3s ease'
                     }}
-                    title="Save Record"
-                >
-                    💾 Save
-                </button>
+                >💾 Save</button>
             </div>
         );
     };
 
-    // Foundation Action Cell
     const FoundationActionCell = (params) => {
         const handleSave = async () => {
             try {
@@ -377,18 +355,13 @@ const PackingListManager = () => {
                         Wt: params.data.wt
                     }]
                 };
-
                 const response = await fetch(`${API_BASE_URL}/foundationUpdateApi.php`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestData)
                 });
-
                 const result = await response.json();
                 const button = document.getElementById(`save-btn-${params.data.index}`);
-
                 if (result.status === 'success') {
                     if (button) {
                         button.style.background = '#28a745';
@@ -398,9 +371,7 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert('Record updated successfully!');
-                    toast.success(`Record updated successfully!`);
-
+                    toast.success('Record updated successfully!');
                     await fetchFoundationData();
                 } else {
                     if (button) {
@@ -411,18 +382,13 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert(`Error: ${result.message}`);
                     toast.error(`Error: ${result.message}`);
-
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                // alert('Error updating record');
                 toast.error('Error updating record');
-
             }
         };
-
         return (
             <div style={{ display: 'flex', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
                 <button
@@ -430,24 +396,15 @@ const PackingListManager = () => {
                     onClick={handleSave}
                     style={{
                         background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 12px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)',
-                        transition: 'all 0.3s ease'
+                        color: 'white', border: 'none', borderRadius: '6px',
+                        padding: '4px 12px', fontSize: '10px', cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)', transition: 'all 0.3s ease'
                     }}
-                    title="Save Record"
-                >
-                    💾 Save
-                </button>
+                >💾 Save</button>
             </div>
         );
     };
 
-    // Fabrication Action Cell
     const FabricationActionCell = (params) => {
         const handleSave = async () => {
             try {
@@ -465,18 +422,13 @@ const PackingListManager = () => {
                         wt: params.data.weight
                     }]
                 };
-
                 const response = await fetch(`${API_BASE_URL}/FabricationUpdateApi.php`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestData)
                 });
-
                 const result = await response.json();
                 const button = document.getElementById(`save-btn-${params.data.index}`);
-
                 if (result.status === 'success') {
                     if (button) {
                         button.style.background = '#28a745';
@@ -486,9 +438,7 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert('Record updated successfully!');
-                    toast.success(`Record updated successfully!`);
-
+                    toast.success('Record updated successfully!');
                     await fetchFabricationData();
                 } else {
                     if (button) {
@@ -499,18 +449,13 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert(`Error: ${result.message}`);
                     toast.error(`Error: ${result.message}`);
-
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                // alert('Error updating record');
                 toast.error('Error updating record');
-
             }
         };
-
         return (
             <div style={{ display: 'flex', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
                 <button
@@ -518,24 +463,15 @@ const PackingListManager = () => {
                     onClick={handleSave}
                     style={{
                         background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 12px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)',
-                        transition: 'all 0.3s ease'
+                        color: 'white', border: 'none', borderRadius: '6px',
+                        padding: '4px 12px', fontSize: '10px', cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)', transition: 'all 0.3s ease'
                     }}
-                    title="Save Record"
-                >
-                    💾 Save
-                </button>
+                >💾 Save</button>
             </div>
         );
     };
 
-    // Assembly Action Cell
     const AssemblyActionCell = (params) => {
         const handleSave = async () => {
             try {
@@ -552,18 +488,13 @@ const PackingListManager = () => {
                         COL_7: params.data.col7
                     }]
                 };
-
                 const response = await fetch(`${API_BASE_URL}/assemblyUpdateApi.php`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(requestData)
                 });
-
                 const result = await response.json();
                 const button = document.getElementById(`save-btn-${params.data.index}`);
-
                 if (result.status === 'success') {
                     if (button) {
                         button.style.background = '#28a745';
@@ -573,9 +504,7 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert('Record updated successfully!');
-                    toast.success(`Record updated successfully!`);
-
+                    toast.success('Record updated successfully!');
                     await fetchAssemblyData();
                 } else {
                     if (button) {
@@ -586,18 +515,13 @@ const PackingListManager = () => {
                             button.innerHTML = '💾 Save';
                         }, 2000);
                     }
-                    // alert(`Error: ${result.message}`);
                     toast.error(`Error: ${result.message}`);
-
                 }
             } catch (error) {
                 console.error('Error updating:', error);
-                // alert('Error updating record');
                 toast.error('Error updating record');
-
             }
         };
-
         return (
             <div style={{ display: 'flex', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
                 <button
@@ -605,62 +529,24 @@ const PackingListManager = () => {
                     onClick={handleSave}
                     style={{
                         background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 12px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)',
-                        transition: 'all 0.3s ease'
+                        color: 'white', border: 'none', borderRadius: '6px',
+                        padding: '4px 12px', fontSize: '10px', cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(0,123,255,0.2)', transition: 'all 0.3s ease'
                     }}
-                    title="Save Record"
-                >
-                    💾 Save
-                </button>
+                >💾 Save</button>
             </div>
         );
     };
 
-    // Generic Action Cell for other tabs
-    const GenericActionCell = (params) => {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', height: '100%', alignItems: 'center' }}>
-                <button
-                    style={{
-                        background: 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '4px 12px',
-                        fontSize: '10px',
-                        cursor: 'pointer'
-                    }}
-                    title="Edit Record"
-                >
-                    ✏️ Edit
-                </button>
-            </div>
-        );
-    };
-
-    // Column definitions for Metal
+    // FIX 3: Column order changed to DT_RowId → Action → Index for all tabs
     const metalColumnDefs = useMemo(() => [
         {
-        headerName: "Index",
-        field: "index",
-        width: 80,
-        pinned: 'left',
-        cellRenderer: EditableCell,  // Changed to editable
-        cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-    },
-    {
-        headerName: "DT_RowId",
-        field: "dbId",
-        width: 80,
-        pinned: 'left',
-        cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-    },
+            headerName: "DT_RowId",
+            field: "dbId",
+            width: 90,
+            pinned: 'left',
+            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
+        },
         {
             headerName: "Action",
             field: "action",
@@ -668,6 +554,14 @@ const PackingListManager = () => {
             pinned: 'left',
             cellRenderer: MetalActionCell,
             cellStyle: { backgroundColor: '#ff8c42' }
+        },
+        {
+            headerName: "Index",
+            field: "index",
+            width: 80,
+            pinned: 'left',
+            cellRenderer: EditableCell,
+            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         { headerName: "Packing Material", field: "packingMaterial", width: 200, cellRenderer: EditableCell },
         { headerName: "CW", field: "cw", width: 80, cellRenderer: EditableCell },
@@ -688,20 +582,11 @@ const PackingListManager = () => {
         { headerName: "Updated by and time", field: "updatedBy", width: 180 }
     ], []);
 
-    // Column definitions for Foundation
     const foundationColumnDefs = useMemo(() => [
-        {
-            headerName: "Index",
-            field: "index",
-            width: 80,
-            pinned: 'left',
-            cellRenderer: EditableCell,  // Changed to editable
-            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-        },
         {
             headerName: "DT_RowId",
             field: "dbId",
-            width: 80,
+            width: 90,
             pinned: 'left',
             cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
@@ -712,6 +597,14 @@ const PackingListManager = () => {
             pinned: 'left',
             cellRenderer: FoundationActionCell,
             cellStyle: { backgroundColor: '#ff8c42' }
+        },
+        {
+            headerName: "Index",
+            field: "index",
+            width: 80,
+            pinned: 'left',
+            cellRenderer: EditableCell,
+            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         { headerName: "Specification", field: "specification", width: 200, cellRenderer: EditableCell },
         { headerName: "MOC", field: "moc", width: 100, cellRenderer: EditableCell },
@@ -725,20 +618,11 @@ const PackingListManager = () => {
         { headerName: "Updated by and time", field: "updatedBy", width: 180 }
     ], []);
 
-    // Column definitions for Fabrication
     const fabricationColumnDefs = useMemo(() => [
-        {
-            headerName: "Index",
-            field: "index",
-            width: 80,
-            pinned: 'left',
-            cellRenderer: EditableCell,  // Changed to editable
-            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-        },
         {
             headerName: "DT_RowId",
             field: "dbId",
-            width: 80,
+            width: 90,
             pinned: 'left',
             cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
@@ -749,6 +633,14 @@ const PackingListManager = () => {
             pinned: 'left',
             cellRenderer: FabricationActionCell,
             cellStyle: { backgroundColor: '#ff8c42' }
+        },
+        {
+            headerName: "Index",
+            field: "index",
+            width: 80,
+            pinned: 'left',
+            cellRenderer: EditableCell,
+            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         { headerName: "Specification", field: "specification", width: 200, cellRenderer: EditableCell },
         { headerName: "COL_2", field: "col2", width: 100, cellRenderer: EditableCell },
@@ -761,20 +653,11 @@ const PackingListManager = () => {
         { headerName: "Updated by and time", field: "updatedBy", width: 180 }
     ], []);
 
-    // Column definitions for Assembly
     const assemblyColumnDefs = useMemo(() => [
-        {
-            headerName: "Index",
-            field: "index",
-            width: 80,
-            pinned: 'left',
-            cellRenderer: EditableCell,  // Changed to editable
-            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
-        },
         {
             headerName: "DT_RowId",
             field: "dbId",
-            width: 80,
+            width: 90,
             pinned: 'left',
             cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
@@ -785,6 +668,14 @@ const PackingListManager = () => {
             pinned: 'left',
             cellRenderer: AssemblyActionCell,
             cellStyle: { backgroundColor: '#ff8c42' }
+        },
+        {
+            headerName: "Index",
+            field: "index",
+            width: 80,
+            pinned: 'left',
+            cellRenderer: EditableCell,
+            cellStyle: { fontWeight: 'bold', textAlign: 'center', backgroundColor: '#ff8c42', color: '#000' }
         },
         { headerName: "Assembly Material ( M )", field: "assemblyMaterial", width: 250, cellRenderer: EditableCell },
         { headerName: "COL_2", field: "col2", width: 100, cellRenderer: EditableCell },
@@ -804,12 +695,9 @@ const PackingListManager = () => {
 
     const handleAddMetal = async () => {
         if (!metalFormData.packingMaterial) {
-            // alert('Please enter a packing material');
-            toast.error(`Please enter a packing material`);
-
+            toast.error('Please enter a packing material');
             return;
         }
-
         setLoading(true);
         try {
             const addFormData = new FormData();
@@ -831,33 +719,18 @@ const PackingListManager = () => {
             addFormData.append('COL_13', metalFormData.col13 || '');
             addFormData.append('COL_14', metalFormData.col14 || '');
             addFormData.append('Wt', metalFormData.wt || '');
-
-            const response = await fetch(`${API_BASE_URL}/SmetalAddApi.php`, {
-                method: 'POST',
-                body: addFormData
-            });
-
+            const response = await fetch(`${API_BASE_URL}/SmetalAddApi.php`, { method: 'POST', body: addFormData });
             const result = await response.json();
             if (result.status === 'success') {
-                // alert('Material added successfully!');
-                toast.success(`Material added successfully!`);
-
-                setMetalFormData({
-                    packingMaterial: '', cw: '', ch: '', hl: '', qty: '', w: '', h: '', qty1: '',
-                    wt: '', sq_m: '', sqft: '', colpc: '', col11: '', matlReqmt: '', col13: '', col14: '', index: ''
-                });
+                toast.success('Material added successfully!');
+                setMetalFormData({ packingMaterial: '', cw: '', ch: '', hl: '', qty: '', w: '', h: '', qty1: '', wt: '', sq_m: '', sqft: '', colpc: '', col11: '', matlReqmt: '', col13: '', col14: '', index: '' });
                 setShowAddForm(false);
                 await fetchMetalData();
             } else {
-                // alert(`Error: ${result.message || 'Failed to add material'}`);
                 toast.error(`Error: ${result.message || 'Failed to add material'}`);
-
             }
         } catch (error) {
-            console.error('Error adding material:', error);
-            // alert('Error adding material: ' + error.message);
             toast.error('Error adding material: ' + error.message);
-
         } finally {
             setLoading(false);
         }
@@ -865,12 +738,9 @@ const PackingListManager = () => {
 
     const handleAddFoundation = async () => {
         if (!foundationFormData.specification) {
-            // alert('Please enter a specification');
-            toast.error(`Please enter a specification`);
-
+            toast.error('Please enter a specification');
             return;
         }
-
         setLoading(true);
         try {
             const addFormData = new FormData();
@@ -885,32 +755,18 @@ const PackingListManager = () => {
             addFormData.append('sq_ft', foundationFormData.sqft || '');
             addFormData.append('Wt_Mtr', foundationFormData.wtMtr || '');
             addFormData.append('Wt', foundationFormData.wt || '');
-
-            const response = await fetch(`${API_BASE_URL}/FoundationAddApi.php`, {
-                method: 'POST',
-                body: addFormData
-            });
-
+            const response = await fetch(`${API_BASE_URL}/FoundationAddApi.php`, { method: 'POST', body: addFormData });
             const result = await response.json();
             if (result.status === 'success') {
-                // alert('Foundation item added successfully!');
-                toast.success(`Foundation item added successfully!`);
-
-                setFoundationFormData({
-                    specification: '', moc: '', size: '', l: '', qty: '', mtrs: '', sqft: '', wtMtr: '', wt: '', index: ''
-                });
+                toast.success('Foundation item added successfully!');
+                setFoundationFormData({ specification: '', moc: '', size: '', l: '', qty: '', mtrs: '', sqft: '', wtMtr: '', wt: '', index: '' });
                 setShowAddForm(false);
                 await fetchFoundationData();
             } else {
-                // alert(`Error: ${result.message || 'Failed to add foundation item'}`);
                 toast.error(`Error: ${result.message || 'Failed to add foundation item'}`);
-
             }
         } catch (error) {
-            console.error('Error adding foundation item:', error);
-            // alert('Error adding foundation item: ' + error.message);
-            toast.error(`Error adding foundation item: ' + error.message'}`);
-
+            toast.error('Error adding foundation item: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -918,11 +774,9 @@ const PackingListManager = () => {
 
     const handleAddFab = async () => {
         if (!fabricationFormData.specification) {
-            // alert('Please enter a specification');
             toast.error('Please enter a specification');
             return;
         }
-
         setLoading(true);
         try {
             const addFormData = new FormData();
@@ -936,32 +790,18 @@ const PackingListManager = () => {
             addFormData.append('Sqft', fabricationFormData.sqft || '');
             addFormData.append('color', fabricationFormData.color || '');
             addFormData.append('weight', fabricationFormData.weight || '');
-
-            const response = await fetch(`${API_BASE_URL}/FabricationAddApi.php`, {
-                method: 'POST',
-                body: addFormData
-            });
-
+            const response = await fetch(`${API_BASE_URL}/FabricationAddApi.php`, { method: 'POST', body: addFormData });
             const result = await response.json();
             if (result.status === 'success') {
-                // alert('Fabrication item added successfully!');
-            toast.success('Fabrication item added successfully!');
-
-                setFabricationFormData({
-                    specification: '', col2: '', inMm: '', qty: '', mtrs: '', sqft: '', color: '', weight: '', index: ''
-                });
+                toast.success('Fabrication item added successfully!');
+                setFabricationFormData({ specification: '', col2: '', inMm: '', qty: '', mtrs: '', sqft: '', color: '', weight: '', index: '' });
                 setShowAddForm(false);
                 await fetchFabricationData();
             } else {
-                // alert(`Error: ${result.message || 'Failed to add fabrication item'}`);
-            toast.error(`Error: ${result.message || 'Failed to add fabrication item'}`);
-
+                toast.error(`Error: ${result.message || 'Failed to add fabrication item'}`);
             }
         } catch (error) {
-            console.error('Error adding fabrication item:', error);
-            // alert('Error adding fabrication item: ' + error.message);
             toast.error('Error adding fabrication item: ' + error.message);
-
         } finally {
             setLoading(false);
         }
@@ -969,12 +809,9 @@ const PackingListManager = () => {
 
     const handleAddAssembly = async () => {
         if (!assemblyFormData.assemblyMaterial) {
-            // alert('Please enter assembly material');
-            toast.success('Please enter assembly material');
-
+            toast.error('Please enter assembly material');
             return;
         }
-
         setLoading(true);
         try {
             const addFormData = new FormData();
@@ -987,66 +824,40 @@ const PackingListManager = () => {
             addFormData.append('Qty', assemblyFormData.qty || '');
             addFormData.append('COL_6', assemblyFormData.col6 || '');
             addFormData.append('COL_7', assemblyFormData.col7 || '');
-
-            const response = await fetch(`${API_BASE_URL}/AssemblyAddApi.php`, {
-                method: 'POST',
-                body: addFormData
-            });
-
+            const response = await fetch(`${API_BASE_URL}/AssemblyAddApi.php`, { method: 'POST', body: addFormData });
             const result = await response.json();
             if (result.status === 'success') {
-                // alert('Assembly item added successfully!');
                 toast.success('Assembly item added successfully!');
-                setAssemblyFormData({
-                    assemblyMaterial: '', col2: '', col3: '', col4: '', qty: '', col6: '', col7: '', index: ''
-                });
+                setAssemblyFormData({ assemblyMaterial: '', col2: '', col3: '', col4: '', qty: '', col6: '', col7: '', index: '' });
                 setShowAddForm(false);
                 await fetchAssemblyData();
             } else {
-                // alert(`Error: ${result.message || 'Failed to add assembly item'}`);
-            toast.error(`Error: ${result.message || 'Failed to add assembly item'}`);
-
+                toast.error(`Error: ${result.message || 'Failed to add assembly item'}`);
             }
         } catch (error) {
-            console.error('Error adding assembly item:', error);
-            // alert('Error adding assembly item: ' + error.message);
             toast.error('Error adding assembly item: ' + error.message);
-
         } finally {
             setLoading(false);
         }
     };
 
-    const toggleTheme = () => {
-        setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-    };
-
-    const toggleFullScreen = () => {
-        setIsFullScreen(!isFullScreen);
-    };
+    const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    const toggleFullScreen = () => setIsFullScreen(!isFullScreen);
 
     const getThemeStyles = () => {
         if (theme === 'dark') {
             return {
                 backgroundColor: 'linear-gradient(135deg, #1a1d23 0%, #0f1419 100%)',
-                color: '#f8f9fa',
-                cardBg: '#252b36',
+                color: '#f8f9fa', cardBg: '#252b36',
                 cardHeader: 'linear-gradient(135deg, #2d3748 0%, #1a202c 100%)',
-                inputBg: '#1a202c',
-                inputBorder: '#4a5568',
-                inputColor: '#f7fafc',
-                inputFocus: '#4299e1'
+                inputBg: '#1a202c', inputBorder: '#4a5568', inputColor: '#f7fafc'
             };
         }
         return {
             backgroundColor: 'linear-gradient(135deg, #f0f4f8 0%, #d9e8f5 100%)',
-            color: '#1a202c',
-            cardBg: '#ffffff',
+            color: '#1a202c', cardBg: '#ffffff',
             cardHeader: 'linear-gradient(135deg, #ffffff 0%, #f7fafc 100%)',
-            inputBg: '#ffffff',
-            inputBorder: '#cbd5e0',
-            inputColor: '#2d3748',
-            inputFocus: '#4299e1'
+            inputBg: '#ffffff', inputBorder: '#cbd5e0', inputColor: '#2d3748'
         };
     };
 
@@ -1057,7 +868,6 @@ const PackingListManager = () => {
         document.body.style.background = themeStyles.backgroundColor;
         document.body.style.color = themeStyles.color;
         document.body.style.minHeight = '100vh';
-
         return () => {
             document.body.style.background = '';
             document.body.style.color = '';
@@ -1065,9 +875,10 @@ const PackingListManager = () => {
         };
     }, [theme]);
 
+    // FIX 2: All cases updated to 'SMetal'
     const getCurrentRowData = () => {
         switch (activeTab) {
-            case 'Metal': return metalRowData;
+            case 'SMetal': return metalRowData;
             case 'Foundation': return foundationRowData;
             case 'Fabrication': return fabricationRowData;
             case 'Assembly': return assemblyRowData;
@@ -1077,7 +888,7 @@ const PackingListManager = () => {
 
     const getCurrentColumnDefs = () => {
         switch (activeTab) {
-            case 'Metal': return metalColumnDefs;
+            case 'SMetal': return metalColumnDefs;
             case 'Foundation': return foundationColumnDefs;
             case 'Fabrication': return fabricationColumnDefs;
             case 'Assembly': return assemblyColumnDefs;
@@ -1085,327 +896,138 @@ const PackingListManager = () => {
         }
     };
 
-    const renderAddForm = () => {
-        if (activeTab === 'Metal') {
-            return (
+    const inputStyle = (themeStyles) => ({
+        width: '100%', padding: '8px 12px',
+        border: `2px solid ${themeStyles.inputBorder}`,
+        borderRadius: '6px', backgroundColor: themeStyles.inputBg,
+        color: themeStyles.inputColor, fontSize: '13px'
+    });
 
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                    gap: '12px',
-                    alignItems: 'end',
-                    padding: '20px',
-                    backgroundColor: theme === 'dark' ? '#1a202c' : '#f7fafc',
-                    borderRadius: '8px',
-                    border: `2px solid ${themeStyles.inputBorder}`
-                }}>
+    const labelStyle = (theme) => ({
+        display: 'block', marginBottom: '6px', fontSize: '12px',
+        fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568'
+    });
+
+    // FIX 2: renderAddForm uses 'SMetal'
+    const renderAddForm = () => {
+        const formWrapStyle = {
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '12px', alignItems: 'end', padding: '20px',
+            backgroundColor: theme === 'dark' ? '#1a202c' : '#f7fafc',
+            borderRadius: '8px', border: `2px solid ${themeStyles.inputBorder}`
+        };
+        const addBtnStyle = {
+            width: '100%', background: 'linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%)',
+            border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600',
+            fontSize: '13px', color: '#fff', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            transition: 'all 0.2s ease', boxShadow: '0 4px 12px rgba(255, 140, 66, 0.3)'
+        };
+
+        if (activeTab === 'SMetal') {
+            return (
+                <div style={formWrapStyle}>
+                    {[
+                        { label: 'Index', key: 'index', ph: 'Enter Index' },
+                        { label: 'Packing Material', key: 'packingMaterial', ph: 'Enter material...' },
+                        { label: 'CW', key: 'cw', ph: 'Enter CW...' },
+                        { label: 'CH', key: 'ch', ph: 'Enter CH...' },
+                        { label: 'Qty', key: 'qty', ph: 'Enter qty...' },
+                        { label: 'W', key: 'w', ph: 'Enter W...' },
+                        { label: 'H', key: 'h', ph: 'Enter H...' },
+                        { label: 'Qty1', key: 'qty1', ph: 'Enter qty1...' },
+                        { label: 'sq_m', key: 'sq_m', ph: 'Enter sq_m' },
+                        { label: 'sq_ft', key: 'sqft', ph: 'Enter sq_ft' },
+                        { label: 'Col_PC', key: 'colpc', ph: 'Enter colpc' },
+                        { label: 'Col_11', key: 'col11', ph: 'Enter col11' },
+                        { label: 'Matl_Reqmt', key: 'matlReqmt', ph: 'Enter Matl_Reqmt' },
+                        { label: 'Col_13', key: 'col13', ph: 'Enter col13' },
+                        { label: 'Col_14', key: 'col14', ph: 'Enter col14' },
+                        { label: 'Wt', key: 'wt', ph: 'Enter weight...' },
+                    ].map(({ label, key, ph }) => (
+                        <div key={key}>
+                            <label style={labelStyle(theme)}>{label}</label>
+                            <input type="text" value={metalFormData[key] || ''} onChange={(e) => setMetalFormData({ ...metalFormData, [key]: e.target.value })} placeholder={ph} style={inputStyle(themeStyles)} />
+                        </div>
+                    ))}
                     <div>
-    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-    <input 
-        type="text" 
-        value={metalFormData.index || ''}
-        onChange={(e) => setMetalFormData({ ...metalFormData, index: e.target.value })}
-        placeholder="Enter Index" 
-        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
-    />
-</div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>
-                            Packing Material
-                        </label>
-                        <input
-                            type="text"
-                            value={metalFormData.packingMaterial}
-                            onChange={(e) => setMetalFormData({ ...metalFormData, packingMaterial: e.target.value })}
-                            placeholder="Enter material..."
-                            style={{
-                                width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`,
-                                borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor,
-                                fontSize: '13px', fontWeight: '500'
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>CW</label>
-                        <input type="text" value={metalFormData.cw} onChange={(e) => setMetalFormData({ ...metalFormData, cw: e.target.value })} placeholder="Enter CW..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>CH</label>
-                        <input type="text" value={metalFormData.ch} onChange={(e) => setMetalFormData({ ...metalFormData, ch: e.target.value })} placeholder="Enter CH..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Qty</label>
-                        <input type="text" value={metalFormData.qty} onChange={(e) => setMetalFormData({ ...metalFormData, qty: e.target.value })} placeholder="Enter qty..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>W</label>
-                        <input type="text" value={metalFormData.w} onChange={(e) => setMetalFormData({ ...metalFormData, w: e.target.value })} placeholder="Enter W..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>H</label>
-                        <input type="text" value={metalFormData.h} onChange={(e) => setMetalFormData({ ...metalFormData, h: e.target.value })} placeholder="Enter H..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Qty1</label>
-                        <input type="text" value={metalFormData.qty1} onChange={(e) => setMetalFormData({ ...metalFormData, qty1: e.target.value })} placeholder="Enter qty1..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter sq_m</label>
-                        <input type="text" value={metalFormData.sq_m} onChange={(e) => setMetalFormData({ ...metalFormData, sq_m: e.target.value })} placeholder="Enter sq_m" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter sq_ft</label>
-                        <input type="text" value={metalFormData.sqft} onChange={(e) => setMetalFormData({ ...metalFormData, sqft: e.target.value })} placeholder="Enter sq_ft" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Col_PC</label>
-                        <input type="text" value={metalFormData.colpc} onChange={(e) => setMetalFormData({ ...metalFormData, colpc: e.target.value })} placeholder="Enter colpc" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Col_11</label>
-                        <input type="text" value={metalFormData.col11} onChange={(e) => setMetalFormData({ ...metalFormData, col11: e.target.value })} placeholder="Enter col11" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Matl_Reqmt</label>
-                        <input type="text" value={metalFormData.matlReqmt} onChange={(e) => setMetalFormData({ ...metalFormData, matlReqmt: e.target.value })} placeholder="Enter Matl_Reqmt" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Col_13</label>
-                        <input type="text" value={metalFormData.col13} onChange={(e) => setMetalFormData({ ...metalFormData, col13: e.target.value })} placeholder="Enter col13" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Col_14</label>
-                        <input type="text" value={metalFormData.col14} onChange={(e) => setMetalFormData({ ...metalFormData, col14: e.target.value })} placeholder="Enter col14" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Wt</label>
-                        <input type="text" value={metalFormData.wt} onChange={(e) => setMetalFormData({ ...metalFormData, wt: e.target.value })} placeholder="Enter weight..." style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: 'transparent' }}>.</label>
-                        <button
-                            onClick={handleAddMetal}
-                            style={{
-                                width: '100%', background: 'linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%)',
-                                border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600',
-                                fontSize: '13px', color: '#fff', cursor: 'pointer', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s ease',
-                                boxShadow: '0 4px 12px rgba(255, 140, 66, 0.3)'
-                            }}
-                        >
-                            ➕ Add Row
-                        </button>
+                        <label style={{ ...labelStyle(theme), color: 'transparent' }}>.</label>
+                        <button onClick={handleAddMetal} style={addBtnStyle}>➕ Add Row</button>
                     </div>
                 </div>
             );
         } else if (activeTab === 'Foundation') {
             return (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                    gap: '12px',
-                    alignItems: 'end',
-                    padding: '20px',
-                    backgroundColor: theme === 'dark' ? '#1a202c' : '#f7fafc',
-                    borderRadius: '8px',
-                    border: `2px solid ${themeStyles.inputBorder}`
-                }}>
+                <div style={formWrapStyle}>
+                    {[
+                        { label: 'Index', key: 'index', ph: 'Enter Index' },
+                        { label: 'Specification', key: 'specification', ph: 'Specification' },
+                        { label: 'MOC', key: 'moc', ph: 'MOC' },
+                        { label: 'Size', key: 'size', ph: 'Enter Size' },
+                        { label: 'L', key: 'l', ph: 'Enter L' },
+                        { label: 'Qty', key: 'qty', ph: 'Enter Qty' },
+                        { label: 'Mtrs', key: 'mtrs', ph: 'Enter Mtrs' },
+                        { label: 'sq_ft', key: 'sqft', ph: 'Enter sq_ft' },
+                        { label: 'Wt_Mtr', key: 'wtMtr', ph: 'Enter Wt_Mtr' },
+                        { label: 'Wt', key: 'wt', ph: 'Enter Wt' },
+                    ].map(({ label, key, ph }) => (
+                        <div key={key}>
+                            <label style={labelStyle(theme)}>{label}</label>
+                            <input type="text" value={foundationFormData[key] || ''} onChange={(e) => setFoundationFormData({ ...foundationFormData, [key]: e.target.value })} placeholder={ph} style={inputStyle(themeStyles)} />
+                        </div>
+                    ))}
                     <div>
-    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-    <input 
-        type="text" 
-        value={foundationFormData.index || ''}
-        onChange={(e) => setFoundationFormData({ ...foundationFormData, index: e.target.value })}
-        placeholder="Enter Index" 
-        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
-    />
-</div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>specification</label>
-                        <input type="text" value={foundationFormData.specification} onChange={(e) => setFoundationFormData({ ...foundationFormData, specification: e.target.value })} placeholder="specification" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>MOC</label>
-                        <input type="text" value={foundationFormData.moc} onChange={(e) => setFoundationFormData({ ...foundationFormData, moc: e.target.value })} placeholder="MOC" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Size</label>
-                        <input type="text" value={foundationFormData.size} onChange={(e) => setFoundationFormData({ ...foundationFormData, size: e.target.value })} placeholder="Enter Size" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter L</label>
-                        <input type="text" value={foundationFormData.l} onChange={(e) => setFoundationFormData({ ...foundationFormData, l: e.target.value })} placeholder="Enter L" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Qty</label>
-                        <input type="text" value={foundationFormData.qty} onChange={(e) => setFoundationFormData({ ...foundationFormData, qty: e.target.value })} placeholder="Enter Qty" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Mtrs</label>
-                        <input type="text" value={foundationFormData.mtrs} onChange={(e) => setFoundationFormData({ ...foundationFormData, mtrs: e.target.value })} placeholder="Enter Mtrs" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter sq_ft</label>
-                        <input type="text" value={foundationFormData.sqft} onChange={(e) => setFoundationFormData({ ...foundationFormData, sqft: e.target.value })} placeholder="Enter sq_ft" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Wt_Mtr</label>
-                        <input type="text" value={foundationFormData.wtMtr} onChange={(e) => setFoundationFormData({ ...foundationFormData, wtMtr: e.target.value })} placeholder="Enter Wt_Mtr" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Wt</label>
-                        <input type="text" value={foundationFormData.wt} onChange={(e) => setFoundationFormData({ ...foundationFormData, wt: e.target.value })} placeholder="Enter Wt" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: 'transparent' }}>.</label>
-                        <button
-                            onClick={handleAddFoundation}
-                            style={{
-                                width: '100%', background: 'linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%)',
-                                border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600',
-                                fontSize: '13px', color: '#fff', cursor: 'pointer', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', gap: '6px'
-                            }}
-                        >
-                            ➕ Save
-                        </button>
+                        <label style={{ ...labelStyle(theme), color: 'transparent' }}>.</label>
+                        <button onClick={handleAddFoundation} style={addBtnStyle}>➕ Save</button>
                     </div>
                 </div>
             );
         } else if (activeTab === 'Fabrication') {
             return (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                    gap: '12px',
-                    alignItems: 'end',
-                    padding: '20px',
-                    backgroundColor: theme === 'dark' ? '#1a202c' : '#f7fafc',
-                    borderRadius: '8px',
-                    border: `2px solid ${themeStyles.inputBorder}`
-                }}>
+                <div style={formWrapStyle}>
+                    {[
+                        { label: 'Index', key: 'index', ph: 'Enter Index' },
+                        { label: 'Specification', key: 'specification', ph: 'Specification' },
+                        { label: 'COL_2', key: 'col2', ph: 'COL_2' },
+                        { label: 'In_mm', key: 'inMm', ph: 'Enter In_mm' },
+                        { label: 'Qty', key: 'qty', ph: 'Enter Qty' },
+                        { label: 'Mtrs', key: 'mtrs', ph: 'Enter Mtrs' },
+                        { label: 'sq_ft', key: 'sqft', ph: 'Enter sq_ft' },
+                        { label: 'Color', key: 'color', ph: 'Enter color' },
+                        { label: 'Weight', key: 'weight', ph: 'Enter weight' },
+                    ].map(({ label, key, ph }) => (
+                        <div key={key}>
+                            <label style={labelStyle(theme)}>{label}</label>
+                            <input type="text" value={fabricationFormData[key] || ''} onChange={(e) => setFabricationFormData({ ...fabricationFormData, [key]: e.target.value })} placeholder={ph} style={inputStyle(themeStyles)} />
+                        </div>
+                    ))}
                     <div>
-    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-    <input 
-        type="text" 
-        value={fabricationFormData.index || ''}
-        onChange={(e) => setFabricationFormData({ ...fabricationFormData, index: e.target.value })}
-        placeholder="Enter Index" 
-        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
-    />
-</div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>specification</label>
-                        <input type="text" value={fabricationFormData.specification} onChange={(e) => setFabricationFormData({ ...fabricationFormData, specification: e.target.value })} placeholder="specification" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>COL_2</label>
-                        <input type="text" value={fabricationFormData.col2} onChange={(e) => setFabricationFormData({ ...fabricationFormData, col2: e.target.value })} placeholder="COL_2" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter In_mm</label>
-                        <input type="text" value={fabricationFormData.inMm} onChange={(e) => setFabricationFormData({ ...fabricationFormData, inMm: e.target.value })} placeholder="Enter In_mm" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Qty</label>
-                        <input type="text" value={fabricationFormData.qty} onChange={(e) => setFabricationFormData({ ...fabricationFormData, qty: e.target.value })} placeholder="Enter Qty" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Mtrs</label>
-                        <input type="text" value={fabricationFormData.mtrs} onChange={(e) => setFabricationFormData({ ...fabricationFormData, mtrs: e.target.value })} placeholder="Enter Mtrs" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter sq_ft</label>
-                        <input type="text" value={fabricationFormData.sqft} onChange={(e) => setFabricationFormData({ ...fabricationFormData, sqft: e.target.value })} placeholder="Enter sq_ft" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter color</label>
-                        <input type="text" value={fabricationFormData.color} onChange={(e) => setFabricationFormData({ ...fabricationFormData, color: e.target.value })} placeholder="Enter color" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter weight</label>
-                        <input type="text" value={fabricationFormData.weight} onChange={(e) => setFabricationFormData({ ...fabricationFormData, weight: e.target.value })} placeholder="Enter weight" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: 'transparent' }}>.</label>
-                        <button
-                            onClick={handleAddFab}
-                            style={{
-                                width: '100%', background: 'linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%)',
-                                border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600',
-                                fontSize: '13px', color: '#fff', cursor: 'pointer', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', gap: '6px'
-                            }}
-                        >
-                            ➕ Save
-                        </button>
+                        <label style={{ ...labelStyle(theme), color: 'transparent' }}>.</label>
+                        <button onClick={handleAddFab} style={addBtnStyle}>➕ Save</button>
                     </div>
                 </div>
             );
         } else if (activeTab === 'Assembly') {
             return (
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                    gap: '12px',
-                    alignItems: 'end',
-                    padding: '20px',
-                    backgroundColor: theme === 'dark' ? '#1a202c' : '#f7fafc',
-                    borderRadius: '8px',
-                    border: `2px solid ${themeStyles.inputBorder}`
-                }}>
+                <div style={formWrapStyle}>
+                    {[
+                        { label: 'Index', key: 'index', ph: 'Enter Index' },
+                        { label: 'Assembly Material', key: 'assemblyMaterial', ph: 'Assembly material' },
+                        { label: 'COL_2', key: 'col2', ph: 'COL_2' },
+                        { label: 'COL_3', key: 'col3', ph: 'Enter COL_3' },
+                        { label: 'COL_4', key: 'col4', ph: 'Enter COL_4' },
+                        { label: 'Qty', key: 'qty', ph: 'Enter Qty' },
+                        { label: 'COL_6', key: 'col6', ph: 'Enter COL_6' },
+                        { label: 'COL_7', key: 'col7', ph: 'Enter COL_7' },
+                    ].map(({ label, key, ph }) => (
+                        <div key={key}>
+                            <label style={labelStyle(theme)}>{label}</label>
+                            <input type="text" value={assemblyFormData[key] || ''} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, [key]: e.target.value })} placeholder={ph} style={inputStyle(themeStyles)} />
+                        </div>
+                    ))}
                     <div>
-    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Index</label>
-    <input 
-        type="text" 
-        value={assemblyFormData.index || ''}
-        onChange={(e) => setAssemblyFormData({ ...assemblyFormData, index: e.target.value })}
-        placeholder="Enter Index" 
-        style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} 
-    />
-</div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>specification</label>
-                        <input type="text" value={assemblyFormData.assemblyMaterial} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, assemblyMaterial: e.target.value })} placeholder="specification" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>COL_2</label>
-                        <input type="text" value={assemblyFormData.col2} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, col2: e.target.value })} placeholder="COL_2" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter COL_3</label>
-                        <input type="text" value={assemblyFormData.col3} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, col3: e.target.value })} placeholder="Enter COL_3" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter COL_4</label>
-                        <input type="text" value={assemblyFormData.col4} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, col4: e.target.value })} placeholder="Enter COL_4" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter Qty</label>
-                        <input type="text" value={assemblyFormData.qty} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, qty: e.target.value })} placeholder="Enter Qty" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter COL_6</label>
-                        <input type="text" value={assemblyFormData.col6} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, col6: e.target.value })} placeholder="Enter COL_6" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: theme === 'dark' ? '#a0aec0' : '#4a5568' }}>Enter COL_7</label>
-                        <input type="text" value={assemblyFormData.col7} onChange={(e) => setAssemblyFormData({ ...assemblyFormData, col7: e.target.value })} placeholder="Enter COL_7" style={{ width: '100%', padding: '8px 12px', border: `2px solid ${themeStyles.inputBorder}`, borderRadius: '6px', backgroundColor: themeStyles.inputBg, color: themeStyles.inputColor, fontSize: '13px' }} />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '600', color: 'transparent' }}>.</label>
-                        <button
-                            onClick={handleAddAssembly}
-
-                            style={{
-                                width: '100%', background: 'linear-gradient(135deg, #ff8c42 0%, #ff6b35 100%)',
-                                border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: '600',
-                                fontSize: '13px', color: '#fff', cursor: 'pointer', display: 'flex',
-                                alignItems: 'center', justifyContent: 'center', gap: '6px'
-                            }}
-                        >
-                            ➕ Save
-                        </button>
+                        <label style={{ ...labelStyle(theme), color: 'transparent' }}>.</label>
+                        <button onClick={handleAddAssembly} style={addBtnStyle}>➕ Save</button>
                     </div>
                 </div>
             );
@@ -1414,43 +1036,30 @@ const PackingListManager = () => {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: themeStyles.backgroundColor,
-            color: themeStyles.color,
-            padding: 0,
-            margin: 0
-        }}>
+        <div style={{ minHeight: '100vh', background: themeStyles.backgroundColor, color: themeStyles.color, padding: 0, margin: 0 }}>
             <div className={`container-fluid ${isFullScreen ? 'p-0' : ''}`}>
                 <div className="card" style={{
-                    backgroundColor: themeStyles.cardBg,
-                    color: themeStyles.color,
+                    backgroundColor: themeStyles.cardBg, color: themeStyles.color,
                     border: theme === 'dark' ? '1px solid #2d3748' : '1px solid #e2e8f0',
-                    margin: isFullScreen ? 0 : 20,
-                    borderRadius: isFullScreen ? 0 : 12,
+                    margin: isFullScreen ? 0 : 20, borderRadius: isFullScreen ? 0 : 12,
                     boxShadow: theme === 'dark' ? '0 20px 40px rgba(0,0,0,0.4)' : '0 10px 30px rgba(0,0,0,0.08)'
                 }}>
-                    {/* Tabs Section */}
-                    <div style={{
-                        display: 'flex',
-                        borderBottom: `2px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'}`,
-                        backgroundColor: themeStyles.cardBg
-                    }}>
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', borderBottom: `2px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'}`, backgroundColor: themeStyles.cardBg }}>
                         {tabs.map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 style={{
-                                    padding: '14px 28px',
-                                    border: 'none',
+                                    padding: '14px 28px', border: 'none',
+                                    // FIX 1: highlight uses activeTab === tab correctly now that names match
                                     backgroundColor: activeTab === tab ? '#ff8c42' : themeStyles.cardBg,
                                     color: activeTab === tab ? '#fff' : themeStyles.color,
-                                    fontSize: '15px',
-                                    fontWeight: activeTab === tab ? '600' : '500',
+                                    fontSize: '15px', fontWeight: activeTab === tab ? '600' : '500',
                                     cursor: 'pointer',
                                     borderBottom: activeTab === tab ? '3px solid #ff8c42' : 'none',
-                                    transition: 'all 0.2s ease',
-                                    outline: 'none'
+                                    transition: 'all 0.2s ease', outline: 'none'
                                 }}
                             >
                                 {tab}
@@ -1458,145 +1067,71 @@ const PackingListManager = () => {
                         ))}
                     </div>
 
-                    {/* Header Section */}
+                    {/* Header */}
                     <div className="card-header" style={{
-                        background: themeStyles.cardHeader,
-                        color: themeStyles.color,
-                        fontFamily: "'Inter', 'Segoe UI', sans-serif",
-                        padding: '1.5rem 2rem',
+                        background: themeStyles.cardHeader, color: themeStyles.color,
+                        fontFamily: "'Inter', 'Segoe UI', sans-serif", padding: '1.5rem 2rem',
                         borderBottom: `2px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'}`
                     }}>
                         <div className="row align-items-center g-3">
                             <div className="col-12">
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '16px',
-                                    flexWrap: 'wrap',
-                                    justifyContent: 'space-between'
-                                }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                                     <button
                                         onClick={() => setShowAddForm(!showAddForm)}
                                         style={{
-                                            fontSize: '0.875rem',
-                                            padding: '10px 18px',
-                                            fontWeight: '600',
-                                            letterSpacing: '0.5px',
+                                            fontSize: '0.875rem', padding: '10px 18px', fontWeight: '600',
                                             background: showAddForm
                                                 ? 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)'
                                                 : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            color: '#fff',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            transition: 'all 0.2s ease'
+                                            border: 'none', borderRadius: '8px', color: '#fff', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', gap: '8px'
                                         }}
                                     >
                                         {showAddForm ? '✖ Hide Form' : '➕ Add New'}
                                     </button>
-
-                                    <div style={{
-                                        display: 'flex',
-                                        gap: '12px',
-                                        alignItems: 'center',
-                                        flex: 1,
-                                        minWidth: 0
-                                    }}>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, minWidth: 0 }}>
                                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-                                            <button
-                                                onClick={toggleFullScreen}
-                                                style={{
-                                                    border: `2px solid ${themeStyles.inputBorder}`,
-                                                    backgroundColor: themeStyles.inputBg,
-                                                    color: themeStyles.color,
-                                                    padding: '8px 16px',
-                                                    fontWeight: '600',
-                                                    borderRadius: '8px',
-                                                    transition: 'all 0.2s ease',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
+                                            <button onClick={toggleFullScreen} style={{ border: `2px solid ${themeStyles.inputBorder}`, backgroundColor: themeStyles.inputBg, color: themeStyles.color, padding: '8px 16px', fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}>
                                                 {isFullScreen ? '📉' : '📈'}
                                             </button>
-                                            <button
-                                                onClick={toggleTheme}
-                                                style={{
-                                                    border: `2px solid ${themeStyles.inputBorder}`,
-                                                    backgroundColor: themeStyles.inputBg,
-                                                    color: themeStyles.color,
-                                                    padding: '8px 16px',
-                                                    fontWeight: '600',
-                                                    borderRadius: '8px',
-                                                    transition: 'all 0.2s ease',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
+                                            <button onClick={toggleTheme} style={{ border: `2px solid ${themeStyles.inputBorder}`, backgroundColor: themeStyles.inputBg, color: themeStyles.color, padding: '8px 16px', fontWeight: '600', borderRadius: '8px', cursor: 'pointer' }}>
                                                 {theme === 'light' ? '🌙' : '☀️'}
                                             </button>
                                         </div>
-
-                                        <div style={{
-                                            fontSize: '14px',
-                                            fontWeight: '600',
-                                            whiteSpace: 'nowrap',
-                                            padding: '8px 16px',
-                                            backgroundColor: theme === 'dark' ? '#2d3748' : '#f7fafc',
-                                            borderRadius: '8px',
-                                            border: `2px solid ${themeStyles.inputBorder}`
-                                        }}>
+                                        <div style={{ fontSize: '14px', fontWeight: '600', whiteSpace: 'nowrap', padding: '8px 16px', backgroundColor: theme === 'dark' ? '#2d3748' : '#f7fafc', borderRadius: '8px', border: `2px solid ${themeStyles.inputBorder}` }}>
                                             File: <span style={{ color: '#ff8c42' }}>{fileName}</span>
-                                            {revision && <span style={{ marginLeft: '8px', color: theme === 'dark' ? '#a0aec0' : '#718096' }}>
-                                                (Rev: {revision})
-                                            </span>}
+                                            {revision && <span style={{ marginLeft: '8px', color: theme === 'dark' ? '#a0aec0' : '#718096' }}>(Rev: {revision})</span>}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
                             {showAddForm && (
-                                <div className="col-12">
-                                    {renderAddForm()}
-                                </div>
+                                <div className="col-12">{renderAddForm()}</div>
                             )}
                         </div>
                     </div>
 
-                    {/* Grid Section */}
+                    {/* Grid */}
                     <div className="card-body" style={{ padding: 0 }}>
                         {loading ? (
-                            <div style={{
-                                padding: '60px',
-                                textAlign: 'center',
-                                fontSize: '18px',
-                                color: theme === 'dark' ? '#a0aec0' : '#718096'
-                            }}>
-                                <div style={{
-                                    display: 'inline-block',
-                                    width: '50px',
-                                    height: '50px',
-                                    border: '4px solid rgba(255, 140, 66, 0.2)',
-                                    borderTopColor: '#ff8c42',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
-                                }}></div>
+                            <div style={{ padding: '60px', textAlign: 'center', fontSize: '18px', color: theme === 'dark' ? '#a0aec0' : '#718096' }}>
+                                <div style={{ display: 'inline-block', width: '50px', height: '50px', border: '4px solid rgba(255, 140, 66, 0.2)', borderTopColor: '#ff8c42', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                                 <div style={{ marginTop: '16px' }}>Loading...</div>
                             </div>
                         ) : (
                             <div
                                 className={theme === 'dark' ? 'ag-theme-alpine-dark' : 'ag-theme-alpine'}
                                 style={{
-                                    height: gridHeight,
-                                    width: '100%',
+                                    height: gridHeight, width: '100%',
                                     '--ag-header-background-color': theme === 'dark' ? '#2d3748' : '#f7fafc',
                                     '--ag-header-foreground-color': theme === 'dark' ? '#f7fafc' : '#2d3748',
                                     '--ag-odd-row-background-color': theme === 'dark' ? '#1a202c' : '#ffffff',
                                     '--ag-background-color': theme === 'dark' ? '#252b36' : '#ffffff',
                                     '--ag-foreground-color': theme === 'dark' ? '#f7fafc' : '#2d3748',
                                     '--ag-border-color': theme === 'dark' ? '#2d3748' : '#e2e8f0',
-                                    '--ag-row-hover-color': theme === 'dark' ? '#2d3748' : '#f7fafc'
+                                    '--ag-row-hover-color': theme === 'dark' ? '#2d3748' : '#f7fafc',
+                                    // FIX 1: Row highlight color via CSS variable
+                                    '--ag-selected-row-background-color': '#ff8c42'
                                 }}
                             >
                                 <AgGridReact
@@ -1606,11 +1141,13 @@ const PackingListManager = () => {
                                     defaultColDef={defaultColDef}
                                     pagination={false}
                                     suppressMovableColumns={true}
-                                    suppressCellFocus={false}
                                     animateRows={true}
                                     domLayout='normal'
                                     headerHeight={48}
                                     rowHeight={42}
+                                    // FIX 1: Enable row selection + click to select
+                                    rowSelection="single"
+                                    suppressRowClickSelection={false}
                                 />
                             </div>
                         )}
@@ -1623,14 +1160,22 @@ const PackingListManager = () => {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
                 }
-
+                /* FIX 1: Row highlight styles */
+                .ag-theme-alpine .ag-row-selected,
+                .ag-theme-alpine-dark .ag-row-selected {
+                    background-color: #ff8c42 !important;
+                    color: #fff !important;
+                }
+                .ag-theme-alpine .ag-row-selected input[type="text"],
+                .ag-theme-alpine-dark .ag-row-selected input[type="text"] {
+                    color: #fff !important;
+                }
                 .ag-theme-alpine .ag-header-cell,
                 .ag-theme-alpine-dark .ag-header-cell {
                     font-weight: 600;
                     font-size: 13px;
                     letter-spacing: 0.3px;
                 }
-
                 .ag-theme-alpine .ag-cell,
                 .ag-theme-alpine-dark .ag-cell {
                     font-size: 13px;
@@ -1638,86 +1183,55 @@ const PackingListManager = () => {
                     display: flex;
                     align-items: center;
                 }
-
                 .ag-theme-alpine .ag-row,
                 .ag-theme-alpine-dark .ag-row {
                     border-bottom: 1px solid ${theme === 'dark' ? '#2d3748' : '#e2e8f0'};
                 }
-
                 .ag-theme-alpine .ag-row-hover,
                 .ag-theme-alpine-dark .ag-row-hover {
                     background-color: ${theme === 'dark' ? '#2d3748' : '#f7fafc'} !important;
                 }
-
                 .ag-theme-alpine input[type="text"],
                 .ag-theme-alpine-dark input[type="text"] {
                     border-radius: 4px;
                     padding: 6px 10px;
                     border: 1px solid ${theme === 'dark' ? '#4a5568' : '#cbd5e0'};
-                    background-color: ${theme === 'dark' ? '#1a202c' : '#ffffff'};
-                    color: ${theme === 'dark' ? '#f7fafc' : '#2d3748'};
+                    background-color: transparent;
+                    color: inherit;
                 }
-
                 .ag-theme-alpine input[type="text"]:focus,
                 .ag-theme-alpine-dark input[type="text"]:focus {
                     outline: none;
                     border-color: #4299e1;
                     box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
                 }
-
                 .ag-theme-alpine ::-webkit-scrollbar,
-                .ag-theme-alpine-dark ::-webkit-scrollbar {
-                    width: 10px;
-                    height: 10px;
-                }
-
+                .ag-theme-alpine-dark ::-webkit-scrollbar { width: 10px; height: 10px; }
                 .ag-theme-alpine ::-webkit-scrollbar-track,
-                .ag-theme-alpine-dark ::-webkit-scrollbar-track {
-                    background: ${theme === 'dark' ? '#1a202c' : '#f7fafc'};
-                }
-
+                .ag-theme-alpine-dark ::-webkit-scrollbar-track { background: ${theme === 'dark' ? '#1a202c' : '#f7fafc'}; }
                 .ag-theme-alpine ::-webkit-scrollbar-thumb,
-                .ag-theme-alpine-dark ::-webkit-scrollbar-thumb {
-                    background: ${theme === 'dark' ? '#4a5568' : '#cbd5e0'};
-                    border-radius: 5px;
-                }
-
+                .ag-theme-alpine-dark ::-webkit-scrollbar-thumb { background: ${theme === 'dark' ? '#4a5568' : '#cbd5e0'}; border-radius: 5px; }
                 .ag-theme-alpine ::-webkit-scrollbar-thumb:hover,
-                .ag-theme-alpine-dark ::-webkit-scrollbar-thumb:hover {
-                    background: #ff8c42;
-                }
-
+                .ag-theme-alpine-dark ::-webkit-scrollbar-thumb:hover { background: #ff8c42; }
                 @media (max-width: 768px) {
-                    .ag-theme-alpine,
-                    .ag-theme-alpine-dark {
-                        font-size: 12px;
-                    }
-
-                    .ag-theme-alpine .ag-header-cell,
-                    .ag-theme-alpine-dark .ag-header-cell {
-                        font-size: 11px;
-                        padding: 8px 4px;
-                    }
-
-                    .ag-theme-alpine .ag-cell,
-                    .ag-theme-alpine-dark .ag-cell {
-                        font-size: 11px;
-                        padding: 6px 4px;
-                    }
+                    .ag-theme-alpine, .ag-theme-alpine-dark { font-size: 12px; }
+                    .ag-theme-alpine .ag-header-cell, .ag-theme-alpine-dark .ag-header-cell { font-size: 11px; padding: 8px 4px; }
+                    .ag-theme-alpine .ag-cell, .ag-theme-alpine-dark .ag-cell { font-size: 11px; padding: 6px 4px; }
                 }
             `}</style>
+
             <ToastContainer
-    position="top-right"
-    autoClose={3000}
-    hideProgressBar={false}
-    newestOnTop
-    closeOnClick
-    rtl={false}
-    pauseOnFocusLoss
-    draggable
-    pauseOnHover
-    theme={theme}
-/>
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme={theme}
+            />
         </div>
     );
 };

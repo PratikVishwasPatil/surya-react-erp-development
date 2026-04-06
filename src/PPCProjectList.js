@@ -24,6 +24,32 @@ ModuleRegistry.registerModules([
     CsvExportModule
 ]);
 
+// FIX 2: Format any date string to "2-March-2026" style
+const formatDateToMonthWord = (value) => {
+    if (!value) return "";
+    try {
+        // Handle formats like "DD-MM-YYYY", "YYYY-MM-DD", "DD/MM/YYYY"
+        let dateObj;
+
+        // Try "DD-MM-YYYY" or "DD/MM/YYYY"
+        const dmyMatch = String(value).match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+        if (dmyMatch) {
+            dateObj = new Date(`${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`);
+        } else {
+            dateObj = new Date(value);
+        }
+
+        if (isNaN(dateObj.getTime())) return value;
+
+        const day = dateObj.getDate();
+        const month = dateObj.toLocaleString("en-GB", { month: "long" });
+        const year = dateObj.getFullYear();
+        return `${day}-${month}-${year}`;
+    } catch {
+        return value;
+    }
+};
+
 const PPCProjectListGrid = () => {
     const [theme, setTheme] = useState('light');
     const [rowData, setRowData] = useState([]);
@@ -55,54 +81,36 @@ const PPCProjectListGrid = () => {
         `;
         toastDiv.textContent = message;
         document.body.appendChild(toastDiv);
-        
         setTimeout(() => {
             toastDiv.style.animation = 'slideOut 0.3s ease-out';
             setTimeout(() => document.body.removeChild(toastDiv), 300);
         }, 3000);
     };
 
-    // Add animation styles
     useEffect(() => {
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes slideIn {
-                from { transform: translateX(400px); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-            @keyframes slideOut {
-                from { transform: translateX(0); opacity: 1; }
-                to { transform: translateX(400px); opacity: 0; }
-            }
+            @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+            @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
         `;
         document.head.appendChild(style);
         return () => document.head.removeChild(style);
     }, []);
 
-    // Handle window resize
     useEffect(() => {
-        const handleResize = () => {
-            setIsMobile(window.innerWidth <= 768);
-        };
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Fetch Financial Years
     const fetchFinancialYears = async () => {
         setLoadingYears(true);
         try {
-            const response = await fetch("https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/GetYearsApi.php", {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            const response = await fetch(
+                "https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/GetYearsApi.php",
+                { method: "GET", headers: { "Content-Type": "application/json" } }
+            );
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
 
             let yearsData = [];
@@ -112,7 +120,6 @@ const PPCProjectListGrid = () => {
                 yearsData = data;
             }
 
-            // Sort financial years in descending order (latest first)
             yearsData.sort((a, b) => {
                 const yearA = a.FINANCIAL_YEAR || a.financial_year;
                 const yearB = b.FINANCIAL_YEAR || b.financial_year;
@@ -120,8 +127,6 @@ const PPCProjectListGrid = () => {
             });
 
             setFinancialYears(yearsData);
-            
-            // Set latest year (25-26) as default
             if (yearsData.length > 0) {
                 setSelectedFinancialYear(yearsData[0].FINANCIAL_YEAR || yearsData[0].financial_year);
             }
@@ -133,53 +138,65 @@ const PPCProjectListGrid = () => {
         }
     };
 
-    // Column definitions
+    // FIX 1 + FIX 2 + FIX 3: Column definitions with correct alignment, date format, checkbox-only open
     const generateColumnDefs = () => {
-        const baseColumns = [
+        return [
             {
                 headerName: "Sr No",
                 field: "serialNumber",
+                // FIX 1: Numbers → right align
                 valueGetter: (params) => params.node ? params.node.rowIndex + 1 : '',
                 width: isMobile ? 60 : 80,
                 minWidth: 50,
                 pinned: 'left',
                 lockPosition: true,
-                cellStyle: { fontWeight: 'bold', textAlign: 'center' }
+                cellStyle: { fontWeight: 'bold', textAlign: 'right' }
             },
             {
                 field: "FILE_NAME",
                 headerName: "File Name",
                 width: isMobile ? 200 : 280,
                 pinned: 'left',
+                // FIX 3: checkbox on this column but clicking row itself won't open
                 checkboxSelection: true,
                 headerCheckboxSelection: true,
-                cellStyle: { fontWeight: 'bold' }
+                // FIX 1: Text → left align
+                cellStyle: { fontWeight: 'bold', textAlign: 'left' }
             },
             {
                 field: "CUSTOMER_NAME",
                 headerName: "Customer Name",
                 width: isMobile ? 180 : 280,
-                minWidth: 150
+                minWidth: 150,
+                // FIX 1: Text → left align
+                cellStyle: { textAlign: 'left' }
             },
             {
                 field: "PRODUCT_NAME",
                 headerName: "Product Name",
                 width: isMobile ? 150 : 200,
-                minWidth: 150
+                minWidth: 150,
+                // FIX 1: Text → left align
+                cellStyle: { textAlign: 'left' }
             },
             {
                 field: "lastUploadDesignDate",
                 headerName: "Last Upload Date",
-                width: isMobile ? 180 : 220,
-                minWidth: 150
+                width: isMobile ? 200 : 230,
+                minWidth: 150,
+                // FIX 2: Format date to "2-March-2026"
+                valueFormatter: (params) => formatDateToMonthWord(params.value),
+                // FIX 1: Date treated as text → left align
+                cellStyle: { textAlign: 'left' }
             },
             {
                 field: "added_by",
                 headerName: "Added By",
                 width: isMobile ? 100 : 120,
-                minWidth: 90
+                minWidth: 90,
+                // FIX 1: Text → left align
+                cellStyle: { textAlign: 'left' }
             },
-            
             {
                 field: "FILE_ID",
                 headerName: "File ID",
@@ -187,8 +204,6 @@ const PPCProjectListGrid = () => {
                 width: 0
             }
         ];
-
-        return baseColumns;
     };
 
     const defaultColDef = useMemo(() => ({
@@ -197,32 +212,22 @@ const PPCProjectListGrid = () => {
         floatingFilter: !isMobile,
         resizable: true,
         suppressMenu: isMobile,
-        cellStyle: { textAlign: 'right' }
+        // FIX 1: Default left align for text; individual columns override where needed
+        cellStyle: { textAlign: 'left' }
     }), [isMobile]);
 
-    // Fetch PPC project list data
     const fetchPPCProjectData = async (financialYear) => {
         if (!financialYear) {
             showToast('Please select a financial year', 'error');
             return;
         }
-
         setLoading(true);
         try {
             const response = await fetch(
                 `https://www.erp.suryaequipments.com/Surya_React/surya_dynamic_api/PPCProjectListApi.php?financial_year=${encodeURIComponent(financialYear)}`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    }
-                }
+                { method: "GET", headers: { "Content-Type": "application/json" } }
             );
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
 
             if (data.status === "success" && Array.isArray(data.data)) {
@@ -244,20 +249,20 @@ const PPCProjectListGrid = () => {
         }
     };
 
-    // Initial load
     useEffect(() => {
         setColumnDefs(generateColumnDefs());
         fetchFinancialYears();
     }, [isMobile]);
 
-    // Load data when financial year changes
     useEffect(() => {
         if (selectedFinancialYear) {
             fetchPPCProjectData(selectedFinancialYear);
         }
     }, [selectedFinancialYear]);
 
-    // Handle selection changed - auto navigate
+    // FIX 3: Only open details page when checkbox is clicked, NOT on row click
+    // suppressRowClickSelection=true prevents row selection on row body click.
+    // We watch selectedRows and open the URL only when selection changes via checkbox.
     const onSelectionChanged = (event) => {
         const selectedNodes = event.api.getSelectedNodes();
         const selectedData = selectedNodes.map(node => node.data);
@@ -265,66 +270,43 @@ const PPCProjectListGrid = () => {
 
         if (selectedData.length === 1) {
             const selectedRecord = selectedData[0];
-
             if (!selectedRecord.FILE_ID) {
                 showToast('File ID not found in selected record', 'error');
                 return;
             }
-
-            // Open details page in new tab
-            const detailsUrl = `#/ppc-project/details/${selectedRecord.FILE_ID}`;
+            const detailsUrl = `${window.location.origin}${window.location.pathname}#/ppc-project/details/${selectedRecord.FILE_ID}`;
             window.open(detailsUrl, '_blank');
         }
     };
 
-    // Handle financial year change
-    const handleFinancialYearChange = (e) => {
-        setSelectedFinancialYear(e.target.value);
-    };
+    const handleFinancialYearChange = (e) => setSelectedFinancialYear(e.target.value);
+    const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    const toggleFullScreen = () => setIsFullScreen(!isFullScreen);
 
-    const toggleTheme = () => {
-        setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-    };
-
-    const toggleFullScreen = () => {
-        setIsFullScreen(!isFullScreen);
-    };
-
-    // Export to CSV
     const downloadExcel = () => {
         if (!gridRef.current?.api) return;
-
         try {
-            const params = {
+            gridRef.current.api.exportDataAsCsv({
                 fileName: `PPCProjectList_FY${selectedFinancialYear}_${new Date().toISOString().split('T')[0]}.csv`,
                 allColumns: true,
                 onlySelected: false
-            };
-            gridRef.current.api.exportDataAsCsv(params);
+            });
             showToast('Data exported successfully!', 'success');
         } catch (error) {
-            console.error('Error exporting data:', error);
             showToast('Error exporting data', 'error');
         }
     };
 
-    // Auto size columns
     const autoSizeAll = () => {
         if (!gridRef.current?.api) return;
-
-        try {
-            setTimeout(() => {
-                const allColumnIds = gridRef.current.api.getColumns()?.map(column => column.getId()) || [];
-                if (allColumnIds.length > 0) {
-                    gridRef.current.api.autoSizeColumns(allColumnIds, false);
-                }
-            }, 100);
-        } catch (error) {
-            console.error('Error auto-sizing columns:', error);
-        }
+        setTimeout(() => {
+            const allColumnIds = gridRef.current.api.getColumns()?.map(col => col.getId()) || [];
+            if (allColumnIds.length > 0) {
+                gridRef.current.api.autoSizeColumns(allColumnIds, false);
+            }
+        }, 100);
     };
 
-    // Refresh data
     const handleRefresh = () => {
         if (selectedFinancialYear) {
             fetchPPCProjectData(selectedFinancialYear);
@@ -332,7 +314,6 @@ const PPCProjectListGrid = () => {
         }
     };
 
-    // Theme styles
     const getThemeStyles = () => {
         if (theme === 'dark') {
             return {
@@ -353,12 +334,10 @@ const PPCProjectListGrid = () => {
     const themeStyles = getThemeStyles();
     const gridHeight = isFullScreen ? 'calc(100vh - 240px)' : (isMobile ? '400px' : '600px');
 
-    // Apply theme to document body
     useEffect(() => {
         document.body.style.background = themeStyles.backgroundColor;
         document.body.style.color = themeStyles.color;
         document.body.style.minHeight = '100vh';
-
         return () => {
             document.body.style.background = '';
             document.body.style.color = '';
@@ -368,13 +347,7 @@ const PPCProjectListGrid = () => {
 
     if (loading && rowData.length === 0) {
         return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: themeStyles.backgroundColor
-            }}>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: themeStyles.backgroundColor }}>
                 <div style={{ textAlign: 'center', color: themeStyles.color }}>
                     <div className="spinner-border" role="status" style={{ width: '3rem', height: '3rem', borderColor: '#007bff', borderRightColor: 'transparent' }}>
                         <span style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden' }}>Loading...</span>
@@ -386,15 +359,9 @@ const PPCProjectListGrid = () => {
     }
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: themeStyles.backgroundColor,
-            color: themeStyles.color,
-            padding: 0,
-            margin: 0
-        }}>
-            <div style={{ 
-                width: '100%', 
+        <div style={{ minHeight: '100vh', background: themeStyles.backgroundColor, color: themeStyles.color, padding: 0, margin: 0 }}>
+            <div style={{
+                width: '100%',
                 maxWidth: isFullScreen ? '100%' : '1400px',
                 margin: '0 auto',
                 padding: isFullScreen ? 0 : '20px'
@@ -416,8 +383,7 @@ const PPCProjectListGrid = () => {
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
                             <div style={{ flex: isMobile ? '1 1 100%' : '1 1 auto' }}>
                                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span>📋</span>
-                                    PPC Project List Dashboard
+                                    <span>📋</span> PPC Project List Dashboard
                                 </h4>
                                 <small style={{ opacity: 0.8 }}>
                                     {`${rowData.length} records found`}
@@ -425,18 +391,10 @@ const PPCProjectListGrid = () => {
                                 </small>
                             </div>
 
-                            <div style={{ 
-                                display: 'flex', 
-                                flexWrap: 'wrap',
-                                gap: '0.5rem',
-                                alignItems: 'center',
-                                flex: isMobile ? '1 1 100%' : '0 1 auto'
-                            }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', flex: isMobile ? '1 1 100%' : '0 1 auto' }}>
                                 {/* Financial Year Dropdown */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
-                                        FY:
-                                    </label>
+                                    <label style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>FY:</label>
                                     <select
                                         value={selectedFinancialYear}
                                         onChange={handleFinancialYearChange}
@@ -459,81 +417,19 @@ const PPCProjectListGrid = () => {
                                     </select>
                                 </div>
 
-                                {/* Action Buttons */}
-                                <button
-                                    onClick={handleRefresh}
-                                    disabled={loading}
-                                    style={{
-                                        padding: '0.375rem 0.75rem',
-                                        fontSize: '0.875rem',
-                                        borderRadius: '0.25rem',
-                                        border: '1px solid #007bff',
-                                        backgroundColor: 'transparent',
-                                        color: '#007bff',
-                                        cursor: 'pointer'
-                                    }}
-                                    title="Refresh data"
-                                >
+                                <button onClick={handleRefresh} disabled={loading} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem', borderRadius: '0.25rem', border: '1px solid #007bff', backgroundColor: 'transparent', color: '#007bff', cursor: 'pointer' }} title="Refresh data">
                                     🔄 {!isMobile && 'Refresh'}
                                 </button>
-
-                                <button
-                                    onClick={downloadExcel}
-                                    style={{
-                                        padding: '0.375rem 0.75rem',
-                                        fontSize: '0.875rem',
-                                        borderRadius: '0.25rem',
-                                        border: 'none',
-                                        backgroundColor: '#28a745',
-                                        color: 'white',
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <button onClick={downloadExcel} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#28a745', color: 'white', cursor: 'pointer' }}>
                                     📊 {!isMobile && 'Export CSV'}
                                 </button>
-
-                                <button
-                                    onClick={autoSizeAll}
-                                    style={{
-                                        padding: '0.375rem 0.75rem',
-                                        fontSize: '0.875rem',
-                                        borderRadius: '0.25rem',
-                                        border: 'none',
-                                        backgroundColor: '#17a2b8',
-                                        color: 'white',
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <button onClick={autoSizeAll} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#17a2b8', color: 'white', cursor: 'pointer' }}>
                                     ⇔ {!isMobile && 'Auto Size'}
                                 </button>
-
-                                <button
-                                    onClick={toggleFullScreen}
-                                    style={{
-                                        padding: '0.375rem 0.75rem',
-                                        fontSize: '0.875rem',
-                                        borderRadius: '0.25rem',
-                                        border: '1px solid #6c757d',
-                                        backgroundColor: 'transparent',
-                                        color: theme === 'dark' ? '#ffffff' : '#000000',
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <button onClick={toggleFullScreen} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem', borderRadius: '0.25rem', border: '1px solid #6c757d', backgroundColor: 'transparent', color: theme === 'dark' ? '#ffffff' : '#000000', cursor: 'pointer' }}>
                                     {isFullScreen ? '🗗' : '🗖'} {!isMobile && (isFullScreen ? 'Exit' : 'Full')}
                                 </button>
-
-                                <button
-                                    onClick={toggleTheme}
-                                    style={{
-                                        padding: '0.375rem 0.75rem',
-                                        fontSize: '0.875rem',
-                                        borderRadius: '0.25rem',
-                                        border: '1px solid #6c757d',
-                                        backgroundColor: 'transparent',
-                                        color: theme === 'dark' ? '#ffffff' : '#000000',
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <button onClick={toggleTheme} style={{ padding: '0.375rem 0.75rem', fontSize: '0.875rem', borderRadius: '0.25rem', border: '1px solid #6c757d', backgroundColor: 'transparent', color: theme === 'dark' ? '#ffffff' : '#000000', cursor: 'pointer' }}>
                                     {theme === 'light' ? '🌙' : '☀️'} {!isMobile && (theme === 'light' ? 'Dark' : 'Light')}
                                 </button>
                             </div>
@@ -541,31 +437,15 @@ const PPCProjectListGrid = () => {
                     </div>
 
                     {/* Grid Body */}
-                    <div style={{
-                        backgroundColor: themeStyles.cardBg,
-                        padding: isFullScreen ? 0 : '15px'
-                    }}>
+                    <div style={{ backgroundColor: themeStyles.cardBg, padding: isFullScreen ? 0 : '15px' }}>
                         {rowData.length === 0 && !loading ? (
-                            <div style={{
-                                textAlign: 'center',
-                                padding: '50px',
-                                color: themeStyles.color
-                            }}>
+                            <div style={{ textAlign: 'center', padding: '50px', color: themeStyles.color }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '20px' }}>📋</div>
                                 <h5>No PPC project data available</h5>
                                 <p>Select a financial year or try refreshing.</p>
                                 <button
                                     onClick={handleRefresh}
-                                    style={{
-                                        padding: '0.5rem 1rem',
-                                        fontSize: '1rem',
-                                        borderRadius: '0.25rem',
-                                        border: 'none',
-                                        backgroundColor: '#007bff',
-                                        color: 'white',
-                                        cursor: 'pointer',
-                                        marginTop: '1rem'
-                                    }}
+                                    style={{ padding: '0.5rem 1rem', fontSize: '1rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#007bff', color: 'white', cursor: 'pointer', marginTop: '1rem' }}
                                 >
                                     🔄 Refresh Data
                                 </button>
@@ -598,7 +478,11 @@ const PPCProjectListGrid = () => {
                                     defaultColDef={defaultColDef}
                                     pagination={true}
                                     paginationPageSize={isMobile ? 10 : 25}
-                                    rowSelection="single"
+                                    // FIX 3: "multiple" allows checkbox selection;
+                                    // suppressRowClickSelection=true means clicking the
+                                    // row body does NOT select/open — only checkbox does.
+                                    rowSelection="multiple"
+                                    suppressRowClickSelection={true}
                                     onSelectionChanged={onSelectionChanged}
                                     suppressMovableColumns={isMobile}
                                     enableRangeSelection={!isMobile}
@@ -608,8 +492,7 @@ const PPCProjectListGrid = () => {
                                     suppressHorizontalScroll={false}
                                     headerHeight={isMobile ? 40 : 48}
                                     rowHeight={isMobile ? 35 : 42}
-                                    onGridReady={(params) => {
-                                        console.log('PPC Project Grid is ready');
+                                    onGridReady={() => {
                                         setTimeout(() => autoSizeAll(), 500);
                                     }}
                                 />

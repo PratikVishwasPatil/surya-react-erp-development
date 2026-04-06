@@ -401,7 +401,7 @@ const PPCProjectListGrid = () => {
                             <div style={{ flex: isMobile ? '1 1 100%' : '1 1 auto' }}>
                                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <span>📋</span>
-                                     File List to uploade FP Data 
+                                     File List to upload FP Data 
                                 </h4>
                                 <small style={{ opacity: 0.8 }}>
                                     {`${rowData.length} records found`}
@@ -536,7 +536,7 @@ const PPCProjectListGrid = () => {
                                 color: themeStyles.color
                             }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '20px' }}>📋</div>
-                                <h5>No PPC project data available</h5>
+                                <h5>No File List to upload FP</h5>
                                 <p>Select a financial year or try refreshing.</p>
                                 <button
                                     onClick={handleRefresh}
@@ -580,6 +580,7 @@ const PPCProjectListGrid = () => {
                                     rowData={rowData}
                                     columnDefs={columnDefs}
                                     defaultColDef={defaultColDef}
+                                    suppressRowClickSelection={true} 
                                     pagination={true}
                                     paginationPageSize={isMobile ? 10 : 25}
                                     rowSelection="single"

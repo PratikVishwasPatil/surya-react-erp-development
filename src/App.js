@@ -394,7 +394,7 @@ function AppWrapper() {
           
           <Route path="/marketing/project/Upload-marketing-excel(fp)" element={<UploadFPFileList />}
                     />
-          <Route path="/marketing/project/UploadFPData/:id" element={<UploadFPData />} /> 
+          <Route path="/marketing/project/UploadFPData/:id/:fileName" element={<UploadFPData />} /> 
           {/* {/* tejasvi mam */}
 
           {/* Project */}
@@ -468,9 +468,9 @@ function AppWrapper() {
 
           <Route path="/packing-list/details/:fileid" element={<SwapPackingListDetails />} />
           <Route path="/design/swap-excel-list" element={<SwapExcelList />} />
-          <Route path="/excel-list/details/:fileid" element={<SwapExcelListDetails />} />
+          <Route path="/excel-list/details/:fileid/:fileName" element={<SwapExcelListDetails />} />
           <Route path="/design/swap-material" element={<SwapMaterial />} />
-          <Route path="/material-swap/details/:fileid" element={<SwapMaterialListDetails />} />
+          <Route path="/material-swap/details/:fileid/:fileName" element={<SwapMaterialListDetails />} />
           <Route path="/design/upload-drawing" element={<UploadDrawing />} />
           <Route path="/upload-drawing-details/:fileid" element={<UploadDrawingDetails />} />
           {/* // Correct route definition */}
@@ -725,7 +725,7 @@ function AppWrapper() {
             path="/susham/project-list"
             element={<SushamProjectList />}
           />
-            <Route path="/susham/project-detail/:fileid" element={<SushamProjectListDetails />} />
+            <Route path="/susham/project-detail/:fileid/:fileName" element={<SushamProjectListDetails />} />
 
           <Route
             path="/champion/project-list"

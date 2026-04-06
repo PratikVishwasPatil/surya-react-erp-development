@@ -152,7 +152,10 @@ const PackingListManager = () => {
             node.setDataValue(colDef.field, newValue);
             api.refreshCells({ rowNodes: [node], columns: [colDef.field] });
         };
-
+        const rightAlignFields = ['qty', 'weight'];
+    
+        const isRightAligned = rightAlignFields.includes(colDef.field);
+    
         return (
             <input
                 type="text"
@@ -165,7 +168,9 @@ const PackingListManager = () => {
                     borderRadius: "3px",
                     padding: "4px",
                    
+                    textAlign: isRightAligned ? "right" : "left", // ✅ dynamic
                     fontSize: isMobile ? "10px" : "11px",
+                    fontWeight: "500", // 🔥 optional (better visibility)
                     backgroundColor: "transparent",
                     outline: "none"
                 }}
@@ -348,14 +353,16 @@ const PackingListManager = () => {
                         backgroundColor: '#ff8c42', 
                         color: '#000', 
                         fontSize: isMobile ? '10px' : '11px',
-                        textAlign: 'left' 
+                        textAlign: 'left' ,
+                        justifyContent: 'flex-start'
                     };
                 }
                 return { 
                     backgroundColor: '#f8f9fa', 
                     padding: '2px', 
-                    fontSize: isMobile ? '10px' : '11px',
-                    textAlign: 'left' 
+                    fontSize: isMobile ? '11px' : '12px',
+                    textAlign: 'left' ,
+                    justifyContent: 'flex-start'
                 };
             }
         },
@@ -443,7 +450,7 @@ const PackingListManager = () => {
         sortable: true,
         resizable: true,
         filter: false,
-        //cellStyle: { textAlign: 'right' }
+        cellStyle: { textAlign: 'left' }
     }), []);
 
     const handleAddMaterial = async () => {
@@ -497,7 +504,7 @@ const PackingListManager = () => {
             addFormData.append('mname', selectedMaterial.value);
             addFormData.append('unit', selectedUnit.value);
             addFormData.append('qty', customField2);
-            addFormData.append('comment_add', '');
+            addFormData.append('comment_add', customField1);
 
             const addResponse = await fetch(`${API_BASE_URL}/AddMaterialPackingListApi.php`, {
                 method: 'POST',
@@ -890,43 +897,7 @@ const PackingListManager = () => {
                                             />
                                         </div>
 
-                                        <div>
-                                            <label style={{
-                                                display: 'block',
-                                                marginBottom: '6px',
-                                                fontSize: isMobile ? '12px' : '13px',
-                                                fontWeight: '600',
-                                                color: theme === 'dark' ? '#a0aec0' : '#4a5568'
-                                            }}>
-                                                Width
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={customField1}
-                                                onChange={(e) => setCustomField1(e.target.value)}
-                                                placeholder="Enter width..."
-                                                style={{
-                                                    width: '100%',
-                                                    padding: isMobile ? '8px 12px' : '10px 14px',
-                                                    border: `2px solid ${themeStyles.inputBorder}`,
-                                                    borderRadius: isMobile ? '6px' : '8px',
-                                                    backgroundColor: themeStyles.inputBg,
-                                                    color: themeStyles.inputColor,
-                                                    fontSize: isMobile ? '12px' : '14px',
-                                                    fontWeight: '500',
-                                                    transition: 'all 0.2s ease',
-                                                    outline: 'none'
-                                                }}
-                                                onFocus={(e) => {
-                                                    e.target.style.borderColor = themeStyles.inputFocus;
-                                                    e.target.style.boxShadow = `0 0 0 3px ${themeStyles.inputFocus}20`;
-                                                }}
-                                                onBlur={(e) => {
-                                                    e.target.style.borderColor = themeStyles.inputBorder;
-                                                    e.target.style.boxShadow = 'none';
-                                                }}
-                                            />
-                                        </div>
+                                        
 
                                         <div>
                                             <label style={{
@@ -989,7 +960,43 @@ const PackingListManager = () => {
                                                 classNamePrefix="react-select"
                                             />
                                         </div>
-
+                                        <div>
+                                            <label style={{
+                                                display: 'block',
+                                                marginBottom: '6px',
+                                                fontSize: isMobile ? '12px' : '13px',
+                                                fontWeight: '600',
+                                                color: theme === 'dark' ? '#a0aec0' : '#4a5568'
+                                            }}>
+                                                Comment
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={customField1}
+                                                onChange={(e) => setCustomField1(e.target.value)}
+                                                placeholder="Enter Comment..."
+                                                style={{
+                                                    width: '100%',
+                                                    padding: isMobile ? '8px 12px' : '10px 14px',
+                                                    border: `2px solid ${themeStyles.inputBorder}`,
+                                                    borderRadius: isMobile ? '6px' : '8px',
+                                                    backgroundColor: themeStyles.inputBg,
+                                                    color: themeStyles.inputColor,
+                                                    fontSize: isMobile ? '12px' : '14px',
+                                                    fontWeight: '500',
+                                                    transition: 'all 0.2s ease',
+                                                    outline: 'none'
+                                                }}
+                                                onFocus={(e) => {
+                                                    e.target.style.borderColor = themeStyles.inputFocus;
+                                                    e.target.style.boxShadow = `0 0 0 3px ${themeStyles.inputFocus}20`;
+                                                }}
+                                                onBlur={(e) => {
+                                                    e.target.style.borderColor = themeStyles.inputBorder;
+                                                    e.target.style.boxShadow = 'none';
+                                                }}
+                                            />
+                                        </div>
                                         <button
                                             onClick={handleAddMaterial}
                                             style={{

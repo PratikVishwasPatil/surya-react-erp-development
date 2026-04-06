@@ -271,7 +271,7 @@ const MaterialSwapListGrid = () => {
             }
 
             // Open details page in new tab
-            const detailsUrl = `#/material-swap/details/${selectedRecord.FILE_ID}`;
+            const detailsUrl = `#/material-swap/details/${selectedRecord.FILE_ID}/${selectedRecord.FILE_NAME}`;
             window.open(detailsUrl, '_blank');
         }
     };
